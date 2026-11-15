@@ -71,6 +71,85 @@ def parse_route(message: KramerMessage, family: str) -> dict[int, int]:
     return {}
 
 
+@dataclass(frozen=True)
+class SignalId:
+    """A Protocol 3000 signal ID; physical port number is not a route index."""
+
+    direction: str
+    port_type: str
+    port_number: int
+    signal_type: str = "VIDEO"
+    channel: int = 1
+
+    def __str__(self) -> str:
+        return (
+            f"{self.direction}.{self.port_type}.{self.port_number}."
+            f"{self.signal_type}.{self.channel}"
+        )
+
+
+_SIGNAL_PATTERN = re.compile(
+    r"^(IN|OUT|BOTH)\.([A-Z0-9_-]+)\.(\d+)"
+    r"(?:\.([A-Z0-9_-]+)\.(\d+))?$",
+    re.IGNORECASE,
+)
+
+
+def parse_signal_id(value: str) -> SignalId | None:
+    """Accept full signal IDs and the documented VIDEO.1 abbreviated form."""
+    match = _SIGNAL_PATTERN.fullmatch(value.strip())
+    if match is None:
+        return None
+    direction, port_type, port, signal_type, channel = match.groups()
+    port_index = int(port)
+    channel_index = int(channel) if channel is not None else 1
+    if port_index < 1 or channel_index < 1:
+        return None
+    return SignalId(
+        direction.upper(),
+        port_type.upper(),
+        port_index,
+        (signal_type or "VIDEO").upper(),
+        channel_index,
+    )
+
+
+def parse_signals_list(message: KramerMessage) -> list[SignalId]:
+    """Decode a SIGNALS-LIST response, preserving device-reported port order."""
+    if message.command != "SIGNALS-LIST":
+        return []
+    payload = message.payload.strip()
+    if not (payload.startswith("[") and payload.endswith("]")):
+        return []
+    result = []
+    for field in payload[1:-1].split(","):
+        signal = parse_signal_id(field)
+        if signal is not None and signal not in result:
+            result.append(signal)
+    return result
+
+
+def parse_x_route(message: KramerMessage) -> tuple[SignalId, SignalId] | None:
+    """Decode a single output/source pair; do not conflate AUDIO and VIDEO."""
+    if message.command != "X-ROUTE":
+        return None
+    fields = message.payload.split(",")
+    if len(fields) != 2:
+        return None
+    destination = parse_signal_id(fields[0])
+    source = parse_signal_id(fields[1])
+    if (
+        destination is None
+        or source is None
+        or destination.direction != "OUT"
+        or source.direction != "IN"
+        or destination.signal_type != "VIDEO"
+        or source.signal_type != "VIDEO"
+    ):
+        return None
+    return destination, source
+
+
 class _UdpReceiver(asyncio.DatagramProtocol):
     def __init__(self, client: KramerClient) -> None:
         self._client = client

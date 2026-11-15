@@ -8,7 +8,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_INPUT_NAMES, CONF_OUTPUT_NAMES, DOMAIN, FAMILY_VID
+from .const import CONF_INPUT_NAMES, CONF_OUTPUT_NAMES, DOMAIN, FAMILY_VID, FAMILY_X_ROUTE
 from .coordinator import KramerCoordinator
 from .protocol import KramerError
 
@@ -32,6 +32,16 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities) -> N
     outputs = _friendly_names(
         entry.options.get(CONF_OUTPUT_NAMES, ""), coordinator.outputs, "Output"
     )
+    if coordinator.family == FAMILY_X_ROUTE:
+        # Include physical connector identities, which may have overlapping numbers.
+        inputs = [
+            f"{label} ({signal.port_type} {signal.port_number})"
+            for label, signal in zip(inputs, coordinator.x_inputs)
+        ]
+        outputs = [
+            f"{label} ({signal.port_type} {signal.port_number})"
+            for label, signal in zip(outputs, coordinator.x_outputs)
+        ]
     async_add_entities(
         KramerOutputSelect(coordinator, output, inputs, outputs[output - 1])
         for output in range(1, coordinator.outputs + 1)
@@ -53,7 +63,13 @@ class KramerOutputSelect(CoordinatorEntity[KramerCoordinator], SelectEntity):
         super().__init__(coordinator)
         self.output = output
         self._attr_name = output_name
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_video_output_{output}"
+        # Physical signal identity prevents entity IDs from shifting when a modular
+        # chassis reports its ports in a different order after a firmware upgrade.
+        if coordinator.family == FAMILY_X_ROUTE:
+            port_key = str(coordinator.x_outputs[output - 1]).lower().replace(".", "_")
+            self._attr_unique_id = f"{coordinator.entry.entry_id}_video_output_{port_key}"
+        else:
+            self._attr_unique_id = f"{coordinator.entry.entry_id}_video_output_{output}"
         self._options = (["Disconnected"] if coordinator.family == FAMILY_VID else []) + inputs
         self._attr_options = self._options
         self._attr_device_info = DeviceInfo(

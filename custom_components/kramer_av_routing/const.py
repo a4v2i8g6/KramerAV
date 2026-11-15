@@ -21,5 +21,6 @@ TRANSPORT_UDP = "udp"
 FAMILY_AUTO = "auto"
 FAMILY_ROUTE = "route"
 FAMILY_VID = "vid"
+FAMILY_X_ROUTE = "x_route"
 
 PLATFORMS = [Platform.SELECT]

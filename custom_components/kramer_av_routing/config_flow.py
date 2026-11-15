@@ -20,6 +20,7 @@ from .const import (
     FAMILY_AUTO,
     FAMILY_ROUTE,
     FAMILY_VID,
+    FAMILY_X_ROUTE,
     TRANSPORT_TCP,
     TRANSPORT_UDP,
 )
@@ -42,7 +43,7 @@ STEP_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=0, max=256)
         ),
         vol.Required(CONF_COMMAND_FAMILY, default=FAMILY_AUTO): vol.In(
-            [FAMILY_AUTO, FAMILY_ROUTE, FAMILY_VID]
+            [FAMILY_AUTO, FAMILY_ROUTE, FAMILY_VID, FAMILY_X_ROUTE]
         ),
     }
 )

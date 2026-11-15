@@ -1,93 +1,83 @@
-# Kramer AV Routing — Protocol 3000 for Home Assistant
+# KramerAV — Kramer Protocol 3000 routing for Home Assistant
 
-**Version 0.1.0 — experimental prototype, not hardware-validated.**
+**Version 0.2.0 — experimental / alpha. No real Kramer hardware has been tested.**
 
-A native custom integration for Kramer Protocol 3000 matrix and presentation switchers.
-It can control independent video output routes using `ROUTE` or `VID` commands over
-TCP or UDP, and keep Home Assistant in sync via status polling and received routing
-notifications. It does **not** use Protocol 2000 or the `kessler-av` library.
+A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and presentation switchers.
 
-## What works in this initial version
+- Supports TCP (often port 5000) and UDP (often port 50000), with manually configurable ports.
+- Detects device identity using `MODEL?`.
+- **NEW:** Automatically probes Extended Protocol 3000 using `SIGNALS-LIST?` and `X-ROUTE?`.
+- **NEW:** Uses typed physical signal IDs (for example `IN.HDMI.2.VIDEO.1` and `OUT.HDBT.4.VIDEO.1`).
+- **NEW:** Filters audio signals out of the video-routing selectors and distinguishes different connector types that use the same physical port number.
+- Retains fallback detection of legacy `ROUTE` and `VID` command families.
+- Provides one Home Assistant `select` entity for each output and live feedback for recognized video crosspoint updates.
+- Supports user-defined labels and periodic routing-status refresh.
+- Installs separately from the original Protocol 2000 integration; no Protocol 2000 or `kessler-av` dependency.
 
-- Set up devices in Home Assistant's **Devices & services** UI, with connection verification via `MODEL?`.
-- TCP (normally port **5000**) and UDP (normally port **50000**), with custom ports.
-- Query the device model and Protocol 3000 version.
-- Discover input/output counts using `INFO-IO?`, or enter manual counts if unsupported.
-- Auto-detect common video routing query families: `ROUTE? 1,<output>` and `VID? <output>`, or override manually.
-- Expose one `select` entity for every output: route Input 1/2/3/... independently.
-- Receive routing notifications (`ROUTE`/`VID`) and poll status every 30 seconds by default.
-- Reconnect after connection loss on the next poll.
-- Name inputs and outputs, without changing their numeric physical addresses.
-- VID devices have a **Disconnected** option (input 0).
-- Works alongside `custom_components/kramer` from the original Protocol 2000 integration.
+## Compatibility notes
 
-**Important compatibility caveat:** This is a *generic common-command* implementation, not
-certified support for every Kramer VP, VS or MTX model. VP scalers, modular matrices,
-and newer Extended Protocol 3000 products may have layer, destination, or signal-ID
-semantics that differ from these two command families. Always verify the exact model's
-command documentation before controlling equipment in production.
+This is *not* verified universal support for all VS, VP, MTX or Kramer devices. Protocol 3000 is a command protocol, not a guarantee of identical commands or capabilities. Some VP/scaler outputs, modular chassis, input groups or switchers require model-specific routing profiles. Devices may advertise signals that are not routable with every output. Authentication and RS-232 devices are not covered yet.
 
-## Not yet implemented
+**The automatic Extended Protocol 3000 detection is deliberately read-only:** it obtains `SIGNALS-LIST?`, then queries `X-ROUTE?` for the first reported video output. If this succeeds, typed ports are used for routing. Otherwise, Auto mode falls back to legacy `ROUTE?` / `VID?` discovery. An explicit `x_route` selection does not silently downgrade.
 
-- Extended `X-ROUTE` with typed signal/port IDs (`SIGNALS-LIST?` discovery)
-- RS-232/USB-serial transport
-- Separate audio routing / audio-follow-video
-- Preset save/recall, EDID, video/scaler functions, hardware labels
-- Multiple destinations with nonsequential IDs, modular chassis maps
-- Authentication, TLS and automatic discovery of host IPs
-- Per-model profiles or a runtime routing-command diagnostic UI
+For X-ROUTE devices, logical `Input 1`, `Input 2` and `Output 1`, `Output 2` refer to the order of the VIDEO signals returned by `SIGNALS-LIST?`, **not necessarily the printed port number**. The UI appends the physical connector name (for example `Input 2 (HDMI 2)` and `Output 1 (HDBT 4)`). X-ROUTE output entity unique IDs are tied to physical signal IDs.
 
-## Install manually on Home Assistant
+## Manual installation / upgrade
 
-1. Unzip the project package.
-2. Copy the **entire** folder `custom_components/kramer_av_routing` into:
-
-   `/config/custom_components/kramer_av_routing/`
-
+1. Download the source ZIP from the repository or the supplied alpha package.
+2. Copy `custom_components/kramer_av_routing` into Home Assistant's `/config/custom_components/` folder, replacing the previous folder if upgrading.
 3. Restart Home Assistant.
-4. Open **Settings → Devices & services → Add integration**, and search for
-   **Kramer AV Routing (Protocol 3000)**.
-5. Enter the host/IP, transport and port.
-   - **TCP** typically uses port **5000**.
-   - **UDP** typically uses port **50000**. Set the port to 50000 when choosing UDP.
-6. Set input and output counts to `0` to try automatic detection with `INFO-IO?`.
-   If it fails, remove the unfinished entry and add it with manual counts.
-7. Leave routing family on **Auto**; if neither query works, check the model manual
-   and choose **ROUTE** or **VID** explicitly on a fresh setup attempt.
-8. Open the device in Home Assistant and find the new output `select` entities.
+4. Go to **Settings → Devices & services → Add integration** and select **Kramer AV Routing (Protocol 3000)**.
+5. Enter the host/IP, transport, and port. **TCP often uses 5000; UDP often uses 50000**, depending on device model.
+6. Leave input and output counts at `0` for auto detection, or specify them if the device doesn't report its counts. Select Auto routing family for the Extended → ROUTE → VID probing sequence.
+7. In the integration's **Configure** options, supply optional comma-separated input and output names and a polling interval.
 
-For each output, the source list contains labels such as `Input 1` and `Input 2`.
-Options for custom labels are in the integration's **Configure** dialog.
-`Input 1 — PC`, `Input 2 — Apple TV`, etc. are unique and preserve port order.
+**Existing v0.1.0 entries:** Home Assistant may need a configuration entry reload/restart after upgrade. When a device changes from the legacy routing family to X-ROUTE, its output entity unique IDs change intentionally to stable physical signal IDs. Re-check automations and dashboard entity references after reconfiguration.
 
-## Example automation action
+## Example commands
+
+All examples use a carriage return (`\r`) terminator. Supported commands depend on the device.
+
+```text
+#SIGNALS-LIST?
+~01@SIGNALS-LIST [IN.HDMI.1.VIDEO.1,IN.HDMI.2.VIDEO.1,OUT.HDBT.4.VIDEO.1]
+#X-ROUTE? OUT.HDBT.4.VIDEO.1
+~01@X-ROUTE OUT.HDBT.4.VIDEO.1,IN.HDMI.1.VIDEO.1
+#X-ROUTE OUT.HDBT.4.VIDEO.1,IN.HDMI.2.VIDEO.1
+~01@X-ROUTE OUT.HDBT.4.VIDEO.1,IN.HDMI.2.VIDEO.1
+```
+
+Legacy routing remains supported:
+
+```text
+#ROUTE? 1,3
+#ROUTE 1,3,2
+#VID? 3
+#VID 2>3
+```
+
+Example Home Assistant automation (replace the entity ID and option with the actual values shown in Home Assistant):
 
 ```yaml
 action: select.select_option
 target:
-  entity_id: select.kramer_vp_778_output_1
+  entity_id: select.kramer_output_1
 data:
-  option: "Input 2"
+  option: "Input 2 (HDMI 2)"
 ```
 
-The entity ID above is only an **example**. Copy the actual output entity ID from your device.
+## Testing and logging
 
-## Testing and troubleshooting
+Run the hardware-free tests from the repository root:
 
-The integration initially performs **read-only queries** (no switching during setup).
-A write command is sent only when you choose an input:
+```bash
+python -m unittest discover -s tests -v
+python -m compileall -q custom_components/kramer_av_routing
+```
 
-- `#ROUTE 1,3,2\r` routes video input 2 to output 3 (ROUTE family)
-- `#VID 2>3\r` routes video input 2 to output 3 (VID family)
+The test suite includes TCP/UDP protocol simulation, Extended signal-ID parsing, status feedback, legacy fallback, and coordinator/entity route handling using lightweight Home Assistant test stubs. It does not replace full Home Assistant integration or real-device testing.
 
-Queries are `#ROUTE? 1,3\r`, `#VID? 3\r`, `#MODEL?\r`, etc.
-
-If **No supported video routing query** appears in logs, your device may require
-Extended Protocol 3000 (`X-ROUTE`) or a different layer/channel format.
-If **Unable to detect input/output count** appears, enter manual values.
-Some Kramer VP units support only serial or UDP; TCP will not work for those models.
-
-Enable debug logs in `configuration.yaml` while testing:
+Enable optional logging in `configuration.yaml`:
 
 ```yaml
 logger:
@@ -95,22 +85,20 @@ logger:
     custom_components.kramer_av_routing: debug
 ```
 
-The local protocol tests require only Python 3.11+:
+The included `.github/workflows/validate.yml` adds automated Python tests and Home Assistant/HACS validation on GitHub Actions. These remote validators have not yet run against this version; they may identify additional fixes.
 
-```bash
-python -m unittest discover -s tests -v
-```
+## Not implemented yet
 
-This package is structured for future publication as a HACS custom GitHub repository,
-**but is not itself published on GitHub or available in HACS**. Install manually until
-it is hosted in a repository.
+- Independent audio routing and audio-follow-video controls.
+- RS-232/serial, authenticated connections, TLS.
+- Presets, signal detection, scaler controls, EDID, auto-switch controls.
+- Routed subset discovery and user-selectable signal/port filtering for complex modular devices.
+- Per-model routing restrictions, multiple destinations, nonstandard source/destination semantics.
+- Hardware profiles and validated compatibility lists.
 
-## Documentation references
+## Reference
 
-- Kramer Protocol 3000 Reference Guide v3.0: https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf
-- Existing Protocol 2000 integration (inspiration only, not bundled): https://github.com/krohrbaugh/kramer-homeassistant
+- [Kramer Protocol 3000 Reference Guide (v3.0)](https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf)
+- [Original Protocol 2000 Home Assistant integration](https://github.com/krohrbaugh/kramer-homeassistant) (inspiration only)
 
-## License
-
-MIT. This prototype is independent and not affiliated with Kramer Electronics or the
-original Protocol 2000 integration author.
+MIT licensed. Independent community project; not affiliated with Kramer Electronics.
