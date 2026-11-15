@@ -1,13 +1,14 @@
-# Upgrade to v0.3.0-alpha (from v0.2.0)
+# Upgrade to v0.3.1-alpha
 
-1. Back up `/config/custom_components/kramer_av_routing/` and your Home Assistant configuration first.
-2. Replace the **entire** `custom_components/kramer_av_routing` folder with the one in the new package. Include `profiles.py`.
-3. Restart Home Assistant and inspect **Settings → Devices & services → Kramer AV Routing**.
-4. For recognized VP-440, VP-440X, VP-558, or VP-778 models, use **Auto** command family, **Auto** profile mode, and input/output counts `0` or the documented counts.
-5. Check the reported profile, input names and logical output counts. The VP-778 exposes two scaler channels, not four duplicated physical output connectors.
-6. Verify current source state before switching. Try one harmless input change and confirm the actual display output before using automations.
-7. If discovery rejects your device's documented command layout, **do not force the profile**. Confirm model and firmware/manual. Use Generic only if you understand its physical numbering.
+## VP-444 support
 
-Existing v0.2 config entries do not have `profile_mode`; this version defaults to Auto. Existing input/output custom labels remain in options. Auto-profile activation can change selector options (for example `Input 1` becomes `Input 1 — HDMI 1`); update any automations using the old text values. Existing X-ROUTE devices keep their earlier discovery behavior. The output entity unique IDs for the new ROUTE-based VP profiles retain the original logical output index IDs.
+The VP-444 profile was added on top of the v0.3.0 VP profile framework. To upgrade from 0.3.0, replace the complete `/config/custom_components/kramer_av_routing` folder and restart Home Assistant. Version 0.2.0 users should also review the v0.3.0 changes in the README and changelog; the complete ZIP includes all features.
 
-**The entire project is still experimental:** no physical Kramer VP/VS equipment or actual Home Assistant installation has been used to validate compatibility.
+1. Back up the existing custom component and Home Assistant config.
+2. For the VP-444, configure **UDP**, port **50000** (not TCP).
+3. Use **Auto** routing family, **Auto** profile mode, **0** inputs and **0** outputs; alternatively specify **12** inputs and **1** logical output.
+4. Confirm one source selector is created. Both HDMI output connectors share its selected input.
+5. The system checks `ROUTE? 12,1` before permitting any switching; if this fails, confirm the device's model/firmware rather than forcing another model's profile.
+6. The VP-444's layer 12 switches video and audio together. Verify physical operation before setting up automations.
+
+**Not hardware-validated:** Tests use simulated Protocol 3000 endpoints. Full Home Assistant runtime/hassfest/HACS validation must still be performed.

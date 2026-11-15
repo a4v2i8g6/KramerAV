@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 (2026-11-15) — VP-444 device profile
+
+- Added an exact-match VP-444 profile with 10 HDMI and 2 PC video inputs (physical IDs 0–11).
+- Routed both mirrored HDMI outputs through the single shared scaler (destination 1) using Protocol 3000 layer 12, which switches video and audio together.
+- Confirmed from the Kramer VP-444 manual that network control uses UDP (default port 50000), not TCP.
+- Added TCP simulator and UDP loopback tests for correct VP-444 probing, input numbering, feedback, no writes during setup, and refusal of a false 12×2 matrix layout.
+- No physical Kramer VP-444 or full Home Assistant runtime validation yet.
+
+
 ## 0.3.0 (2026-11-15) — experimental VP routing profiles
 
 - Added exact model profiles for VP-440, VP-440X, VP-558 and VP-778, grounded in each model's Protocol 3000 command reference.

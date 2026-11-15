@@ -5,6 +5,7 @@ These are **documented command mappings**, not confirmed physical hardware compa
 | Model | Protocol 3000 route layer | Physical input IDs | Physical destination IDs | Logical outputs | Manual |
 | --- | ---: | --- | --- | ---: | --- |
 | VP-440 | 12 (video + audio) | 0–5 | 1 | 1 | [Kramer VP-440 manual](https://cdn.kramerav.com/web/downloads/manuals/kramer-vp-440-um-11.pdf) |
+| VP-444 | 12 (video + audio) | 0–11 | 1 (shared scaler) | 1 | [Official Kramer VP-444 manual](https://k.kramerav.com/downloads/manuals/vp-444.pdf) |
 | VP-440X | 1 (video + audio) | 1–5 | 1 | 1 | [VP-440X Protocol 3000 command guide](https://cdn.kramerav.com/web/downloads/manuals/kramer-vp-440x-um-rev_5.pdf) |
 | VP-558 | 1 (video) | 1–11 | 1–4 | 4 | [VP-558 ROUTE command options](https://www.manualslib.com/manual/1107652/Kramer-Vp-558.html?page=70) |
 | VP-778 | 1 (video) | 0–7 | 0–1 | 2 scaler channels | [Kramer VP-778 manual](https://k.kramerav.com/downloads/manuals/kramer_vp-778.pdf) |
@@ -14,6 +15,12 @@ These are **documented command mappings**, not confirmed physical hardware compa
 ### VP-440
 
 `0=HDMI 1; 1=HDMI 2; 2=HDMI 3; 3=HDMI 4; 4=PC 1; 5=PC 2`. One scaler is destination `1`. The device's documented `ROUTE` command affects video and audio together.
+
+### VP-444
+
+`0–9=HDMI 1–10; 10=PC 1; 11=PC 2`. Both HDMI output connectors show the same scaler source; expose **one** Home Assistant source select, not two independently controllable outputs. Set/select the shared scaler using `ROUTE` layer **12**, destination **1**. Layer 12 routes video and audio together. VP-444 uses **UDP port 50000** for Protocol 3000 IP control (TCP is not supported); RS-232 at 9600 baud is documented but not yet implemented in KramerAV.
+
+Example: `#ROUTE? 12,1` to read the source; `#ROUTE 12,1,2` to select HDMI 3; `#ROUTE 12,1,11` to select PC 2. Source IDs are **zero-based**.
 
 ### VP-440X
 

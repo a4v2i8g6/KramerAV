@@ -41,6 +41,12 @@ PROFILES = {
         ("Scaler",),
         "https://cdn.kramerav.com/web/downloads/manuals/kramer-vp-440-um-11.pdf",
     ),
+    "VP-444": VPProfile(
+        "VP-444", 12, tuple(range(12)), (1,),
+        tuple(f"HDMI {index}" for index in range(1, 11)) + ("PC 1", "PC 2"),
+        ("Scaler (HDMI outputs 1 + 2)",),
+        "https://k.kramerav.com/downloads/manuals/vp-444.pdf",
+    ),
     "VP-440X": VPProfile(
         "VP-440X", 1, (1, 2, 3, 4, 5), (1,),
         ("HDMI 1", "HDMI 2", "HDMI 3", "HDMI 4", "PC"),
