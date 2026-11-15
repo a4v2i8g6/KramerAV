@@ -1,0 +1,41 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Kramer Protocol 3000 device",
+        "description": "Enter the device address. Leave input/output counts at 0 to discover via INFO-IO?. TCP usually uses port 5000; UDP usually uses port 50000. Manually change the port when choosing UDP.",
+        "data": {
+          "host": "Host or IP address",
+          "port": "Port",
+          "transport": "Transport",
+          "inputs": "Input count (0 = auto)",
+          "outputs": "Output count (0 = auto)",
+          "command_family": "Routing command family"
+        },
+        "data_description": {
+          "command_family": "Auto first tries ROUTE?, then VID?. Extended X-ROUTE is not supported in this version."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect or receive a Protocol 3000 model response",
+      "not_protocol_3000": "The device did not identify itself using Protocol 3000"
+    },
+    "abort": {
+      "already_configured": "This address and protocol are already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kramer AV routing options",
+        "description": "Comma-separated friendly names in physical port order. Leave an item blank to retain its numeric label. Names are suffixes, e.g. 'Input 1 — PC'.",
+        "data": {
+          "input_names": "Input names (CSV)",
+          "output_names": "Output names (CSV)",
+          "poll_interval": "Status refresh interval (seconds)"
+        }
+      }
+    }
+  }
+}

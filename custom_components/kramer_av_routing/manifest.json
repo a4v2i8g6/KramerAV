@@ -1,0 +1,10 @@
+{
+  "domain": "kramer_av_routing",
+  "name": "Kramer AV Routing (Protocol 3000)",
+  "version": "0.1.0",
+  "config_flow": true,
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": [],
+  "iot_class": "local_polling"
+}
