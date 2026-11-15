@@ -58,15 +58,20 @@ def parse_io_count(message: KramerMessage) -> tuple[int, int] | None:
     return int(match.group(1)), int(match.group(2))
 
 
-def parse_route(message: KramerMessage, family: str) -> dict[int, int]:
-    """Extract output->input mappings for a video routing response."""
+def parse_route(message: KramerMessage, family: str, layer: int = 1) -> dict[int, int]:
+    """Extract physical destination->source routes; preserve source/dest zero.
+
+    The optional layer is required for certain VP scalers (e.g. VP-440 uses
+    layer 12 rather than generic video layer 1). Some firmware appends OK.
+    """
     if family == "route" and message.command == "ROUTE":
-        # ROUTE layer,destination,source; video layer is 1.
-        match = re.fullmatch(r"\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*", message.payload)
-        if match and int(match.group(1)) == 1:
+        match = re.fullmatch(
+            r"\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s+OK)?\s*",
+            message.payload, flags=re.IGNORECASE,
+        )
+        if match and int(match.group(1)) == layer:
             return {int(match.group(2)): int(match.group(3))}
     elif family == "vid" and message.command in ("VID", "AV"):
-        # Some models return several routes in one reply.
         return {int(out): int(src) for src, out in re.findall(r"(?<!\w)(\d+)\s*>\s*(\d+)(?!\w)", message.payload)}
     return {}
 

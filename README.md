@@ -1,11 +1,16 @@
 # KramerAV — Kramer Protocol 3000 routing for Home Assistant
 
-**Version 0.2.0 — experimental / alpha. No real Kramer hardware has been tested.**
+**Version 0.3.0 — experimental / alpha. No real Kramer hardware has been tested.**
 
 A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and presentation switchers.
 
 - Supports TCP (often port 5000) and UDP (often port 50000), with manually configurable ports.
 - Detects device identity using `MODEL?`.
+- **NEW:** Includes exact-match, read-only verified ROUTE profiles for VP-440, VP-440X, VP-558, and VP-778.
+- **NEW:** Corrects VP-specific zero/one-based input and output IDs and unusual route layers (VP-440 layer 12).
+- **NEW:** Labels sources by their actual connector type (HDMI, PC, DVI-U, HDBaseT), with user override support.
+- **NEW:** Treats VP-778 as a two-channel dual scaler, not four independent HDMI/HDBT destinations.
+- **NEW:** Exposes active profile, route layer, and physical port IDs as output entity attributes.
 - **NEW:** Automatically probes Extended Protocol 3000 using `SIGNALS-LIST?` and `X-ROUTE?`.
 - **NEW:** Uses typed physical signal IDs (for example `IN.HDMI.2.VIDEO.1` and `OUT.HDBT.4.VIDEO.1`).
 - **NEW:** Filters audio signals out of the video-routing selectors and distinguishes different connector types that use the same physical port number.
@@ -16,11 +21,28 @@ A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and pre
 
 ## Compatibility notes
 
-This is *not* verified universal support for all VS, VP, MTX or Kramer devices. Protocol 3000 is a command protocol, not a guarantee of identical commands or capabilities. Some VP/scaler outputs, modular chassis, input groups or switchers require model-specific routing profiles. Devices may advertise signals that are not routable with every output. Authentication and RS-232 devices are not covered yet.
+This is *not* verified universal support for all VS, VP, MTX or Kramer devices. Protocol 3000 is a command protocol, not a guarantee of identical commands or capabilities. **Four specific VP models have now been mapped**, but other VP/scaler outputs, modular chassis, input groups or switchers still require documented model-specific profiles. Devices may advertise signals that are not routable with every output. Authentication and RS-232 devices are not covered yet.
 
 **The automatic Extended Protocol 3000 detection is deliberately read-only:** it obtains `SIGNALS-LIST?`, then queries `X-ROUTE?` for the first reported video output. If this succeeds, typed ports are used for routing. Otherwise, Auto mode falls back to legacy `ROUTE?` / `VID?` discovery. An explicit `x_route` selection does not silently downgrade.
 
 For X-ROUTE devices, logical `Input 1`, `Input 2` and `Output 1`, `Output 2` refer to the order of the VIDEO signals returned by `SIGNALS-LIST?`, **not necessarily the printed port number**. The UI appends the physical connector name (for example `Input 2 (HDMI 2)` and `Output 1 (HDBT 4)`). X-ROUTE output entity unique IDs are tied to physical signal IDs.
+
+## VP device profiles (0.3.0)
+
+| MODEL? response | Sources | Home Assistant outputs | Routing details |
+| --- | ---: | ---: | --- |
+| VP-440 | 6 | 1 | `ROUTE` layer **12**, inputs 0–5; HDMI 1–4, PC 1–2 |
+| VP-440X | 5 | 1 | `ROUTE` layer **1**, inputs 1–5; HDMI 1–4, PC |
+| VP-558 | 11 | 4 | `ROUTE` layer **1**, inputs 1–11; HDMI 1–6, HDBaseT 1–4, PC |
+| VP-778 | 8 | 2 channels | `ROUTE` layer **1**, inputs 0–7, scaler destinations **0 and 1**; HDMI 1–4, DVI-U 1–2, HDBaseT 1–2 |
+
+**Model profiles activate only for an exact `MODEL?` identifier**, on Auto or ROUTE routing family when `profile_mode` is Auto. For those models the setup performs a read-only `ROUTE?` query to verify the expected routing layer and physical IDs. The integration refuses to activate an unconfirmed profile, rather than sending possibly incorrect switch commands. This is a *command-convention check*, not a guarantee that all sources are wired/routable or that the model's firmware matches the tested documentation.
+
+For a known model, input/output counts can remain `0`; the profile provides the logical counts. If provided manually, they must match the profile. If a known model uses unusual firmware, select **Generic** profile mode and explicitly configure its routing family and counts **only after checking the actual device's manual**. This bypasses VP safeguards and may route incorrectly if physical numbering differs.
+
+VP-440's documented layer 12 switches **video and audio together**, not independent video-only routing. VP-778's two logical scaler channels each feed HDMI and HDBaseT connectors, and their presentation/overlay behavior depends on the device mode; changing a channel's input is not the same as executing a transition TAKE operation. Presets, TAKE, and other presentation-mode controls are not included.
+
+See [SUPPORTED_DEVICES.md](SUPPORTED_DEVICES.md) for documentation sources and test status.
 
 ## Manual installation / upgrade
 
@@ -29,10 +51,23 @@ For X-ROUTE devices, logical `Input 1`, `Input 2` and `Output 1`, `Output 2` ref
 3. Restart Home Assistant.
 4. Go to **Settings → Devices & services → Add integration** and select **Kramer AV Routing (Protocol 3000)**.
 5. Enter the host/IP, transport, and port. **TCP often uses 5000; UDP often uses 50000**, depending on device model.
-6. Leave input and output counts at `0` for auto detection, or specify them if the device doesn't report its counts. Select Auto routing family for the Extended → ROUTE → VID probing sequence.
+6. Leave input and output counts at `0` for auto detection, including known VP profiles. Select **Auto** routing family and **Auto** device profile mode (default). Probe order is Extended → verified VP model profile → generic ROUTE → VID. Use **Generic** profile mode only if you need to bypass known VP model routing conventions after consulting the manual.
 7. In the integration's **Configure** options, supply optional comma-separated input and output names and a polling interval.
 
 **Existing v0.1.0 entries:** Home Assistant may need a configuration entry reload/restart after upgrade. When a device changes from the legacy routing family to X-ROUTE, its output entity unique IDs change intentionally to stable physical signal IDs. Re-check automations and dashboard entity references after reconfiguration.
+
+## VP-specific command examples
+
+The physical IDs are *not* the same as the Home Assistant 1-based selector positions:
+
+```text
+# VP-440: select HDMI 2 (physical input 1) on scaler 1, layer 12
+#ROUTE 12,1,1
+# VP-558: select PC (physical input 11) for output 4
+#ROUTE 1,4,11
+# VP-778: select HDBaseT 2 (physical input 7) on scaler channel 2 (physical dest 1)
+#ROUTE 1,1,7
+```
 
 ## Example commands
 
@@ -75,7 +110,7 @@ python -m unittest discover -s tests -v
 python -m compileall -q custom_components/kramer_av_routing
 ```
 
-The test suite includes TCP/UDP protocol simulation, Extended signal-ID parsing, status feedback, legacy fallback, and coordinator/entity route handling using lightweight Home Assistant test stubs. It does not replace full Home Assistant integration or real-device testing.
+The test suite includes TCP/UDP protocol simulation, Extended signal-ID parsing, status feedback, legacy fallback, VP profile mappings (including 0-based destinations/inputs and layer 12), and coordinator/entity route handling using lightweight Home Assistant test stubs. It does not replace full Home Assistant integration or real-device testing.
 
 Enable optional logging in `configuration.yaml`:
 
@@ -94,7 +129,7 @@ The included `.github/workflows/validate.yml` adds automated Python tests and Ho
 - Presets, signal detection, scaler controls, EDID, auto-switch controls.
 - Routed subset discovery and user-selectable signal/port filtering for complex modular devices.
 - Per-model routing restrictions, multiple destinations, nonstandard source/destination semantics.
-- Hardware profiles and validated compatibility lists.
+- More hardware profiles and validated compatibility lists (only the four documented VP profiles above currently exist).
 
 ## Reference
 

@@ -3,17 +3,19 @@
     "step": {
       "user": {
         "title": "Add Kramer Protocol 3000 device",
-        "description": "Enter the device address. Leave input/output counts at 0 to discover via SIGNALS-LIST? (X-ROUTE) or INFO-IO?. TCP usually uses port 5000; UDP usually uses port 50000. Manually change the port when choosing UDP.",
+        "description": "Enter the address. Leave counts at 0 to discover a known VP device profile, SIGNALS-LIST? (X-ROUTE), or INFO-IO?. TCP typically uses port 5000 and UDP port 50000.",
         "data": {
           "host": "Host or IP address",
           "port": "Port",
           "transport": "Transport",
           "inputs": "Input count (0 = auto)",
           "outputs": "Output count (0 = auto)",
-          "command_family": "Routing command family"
+          "command_family": "Routing command family",
+          "profile_mode": "Device profile mode"
         },
         "data_description": {
-          "command_family": "Auto tries X-ROUTE? with SIGNALS-LIST? discovery first, then ROUTE? and VID?."
+          "command_family": "Auto tries X-ROUTE? with SIGNALS-LIST? discovery first, then ROUTE? and VID?.",
+          "profile_mode": "Auto verifies exact VP models using a read-only ROUTE query; Generic disables VP profiles and uses manually configured counts and command family."
         }
       }
     },

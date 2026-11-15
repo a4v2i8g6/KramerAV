@@ -13,12 +13,14 @@ from .coordinator import KramerCoordinator
 from .protocol import KramerError
 
 
-def _friendly_names(csv: str, count: int, prefix: str) -> list[str]:
+def _friendly_names(csv: str, count: int, prefix: str, defaults: tuple[str, ...] = ()) -> list[str]:
     """Produce unique, stable option labels even if names are duplicated."""
     supplied = [name.strip() for name in csv.split(",")]
     labels = []
     for index in range(1, count + 1):
         human = supplied[index - 1] if index <= len(supplied) else ""
+        if not human and index <= len(defaults):
+            human = defaults[index - 1]
         labels.append(f"{prefix} {index}" + (f" — {human}" if human else ""))
     return labels
 
@@ -27,10 +29,12 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities) -> N
     """Create output selectors after the coordinator discovers the layout."""
     coordinator: KramerCoordinator = hass.data[DOMAIN][entry.entry_id]
     inputs = _friendly_names(
-        entry.options.get(CONF_INPUT_NAMES, ""), coordinator.inputs, "Input"
+        entry.options.get(CONF_INPUT_NAMES, ""), coordinator.inputs, "Input",
+        coordinator.profile.input_labels if coordinator.profile else (),
     )
     outputs = _friendly_names(
-        entry.options.get(CONF_OUTPUT_NAMES, ""), coordinator.outputs, "Output"
+        entry.options.get(CONF_OUTPUT_NAMES, ""), coordinator.outputs, "Output",
+        coordinator.profile.output_labels if coordinator.profile else (),
     )
     if coordinator.family == FAMILY_X_ROUTE:
         # Include physical connector identities, which may have overlapping numbers.
@@ -79,6 +83,19 @@ class KramerOutputSelect(CoordinatorEntity[KramerCoordinator], SelectEntity):
             model=coordinator.model,
             sw_version=coordinator.firmware_version or None,
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str | int]:
+        """Expose the active routing backend and physical VP destination for debugging."""
+        attributes: dict[str, str | int] = {"routing_family": self.coordinator.family}
+        if self.coordinator.profile:
+            attributes["device_profile"] = self.coordinator.profile.model
+            attributes["route_layer"] = self.coordinator.profile.route_layer
+            attributes["physical_output_id"] = self.coordinator.profile.output_ids[self.output - 1]
+            route = (self.coordinator.data or {}).get(self.output)
+            if route is not None and 1 <= route <= self.coordinator.inputs:
+                attributes["physical_input_id"] = self.coordinator.profile.input_ids[route - 1]
+        return attributes
 
     @property
     def available(self) -> bool:

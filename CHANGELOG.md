@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 (2026-11-15) — experimental VP routing profiles
+
+- Added exact model profiles for VP-440, VP-440X, VP-558 and VP-778, grounded in each model's Protocol 3000 command reference.
+- Added read-only verification of profile-specific `ROUTE?` query before enabling routing writes; rejects incompatible manually specified port counts.
+- Added a profile-mode setting: Auto (verified VP routing) or Generic (manual override).
+- Added support for zero-based physical source/destination IDs, VP-440's route layer 12, and `ROUTE ... OK` feedback.
+- Added model-specific input names and dual-scaler output channel labels with user-defined name overrides.
+- Added diagnostic attributes for selected backend, active profile, route layer and physical source/destination IDs.
+- Added simulated VP devices and parser/coordinator tests; 26 tests passed locally before final test additions.
+- Not yet validated against real Kramer devices or full Home Assistant environment.
+
 ## 0.2.0 (2026-11-15) — experimental Extended Protocol 3000
 
 - Added typed signal ID parsing, including video-only `SIGNALS-LIST?` discovery and full/abbreviated signal IDs.

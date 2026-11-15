@@ -13,6 +13,8 @@ from .const import (
     CONF_COMMAND_FAMILY,
     CONF_INPUTS,
     CONF_OUTPUTS,
+    CONF_PROFILE_MODE,
+    PROFILE_GENERIC,
     CONF_POLL_INTERVAL,
     CONF_TRANSPORT,
     DEFAULT_POLL_INTERVAL,
@@ -23,6 +25,7 @@ from .const import (
     FAMILY_X_ROUTE,
     TRANSPORT_TCP,
 )
+from .profiles import VPProfile, profile_for_model
 from .protocol import (
     KramerClient,
     KramerConnectionError,
@@ -49,6 +52,7 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.protocol_version = ""
         self.firmware_version = ""
         self.family = entry.data[CONF_COMMAND_FAMILY]
+        self.profile: VPProfile | None = None
         # Extended Protocol 3000 uses typed signal IDs, not contiguous port numbers.
         self.x_inputs: list[SignalId] = []
         self.x_outputs: list[SignalId] = []
@@ -91,7 +95,15 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         if self.family in (FAMILY_AUTO, FAMILY_X_ROUTE):
             await self._discover_extended_routing()
 
-        if self.family != FAMILY_X_ROUTE:
+        # A matching VP profile must be verified by a read-only route query.
+        # Never silently assume generic 1-based numbering for a known VP model.
+        if (self.family in (FAMILY_AUTO, FAMILY_ROUTE)
+                and self.entry.data.get(CONF_PROFILE_MODE, "auto") != PROFILE_GENERIC):
+            profile = profile_for_model(self.model)
+            if profile is not None:
+                await self._activate_vp_profile(profile)
+
+        if self.family != FAMILY_X_ROUTE and self.profile is None:
             if not self.inputs or not self.outputs:
                 try:
                     count_msg = await self.client.command("INFO-IO?")
@@ -134,6 +146,40 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.outputs,
             self.family,
         )
+
+    async def _activate_vp_profile(self, profile: VPProfile) -> None:
+        """Verify the exact model's physical routing IDs without changing it."""
+        if self.inputs not in (0, len(profile.input_ids)) or self.outputs not in (
+            0, len(profile.output_ids)
+        ):
+            raise KramerConnectionError(
+                f"{profile.model} profile expects {len(profile.input_ids)} inputs and "
+                f"{len(profile.output_ids)} logical outputs. Use automatic counts "
+                "(0), or select Generic profile mode for explicit overrides."
+            )
+
+        destination = profile.output_ids[0]
+        try:
+            response = await self.client.command(
+                f"ROUTE? {profile.route_layer},{destination}",
+                matcher=lambda msg: (
+                    (routes := parse_route(msg, FAMILY_ROUTE, layer=profile.route_layer))
+                    .get(destination) in profile.input_ids
+                ),
+            )
+        except KramerError as exc:
+            raise KramerConnectionError(
+                f"The documented ROUTE query for {profile.model} was not confirmed: {exc}. "
+                "Check firmware/manual or select Generic profile mode to use manual routing settings."
+            ) from exc
+        if parse_route(response, FAMILY_ROUTE, layer=profile.route_layer).get(destination) not in profile.input_ids:
+            raise KramerConnectionError("Profile ROUTE query returned an unrecognized source")
+
+        self.profile = profile
+        self.inputs = len(profile.input_ids)
+        self.outputs = len(profile.output_ids)
+        self.family = FAMILY_ROUTE
+        _LOGGER.info("Verified %s VP routing profile (layer %s)", profile.model, profile.route_layer)
 
     async def _discover_extended_routing(self) -> None:
         """Probe X-ROUTE read-only; do not assume every listed signal is routable."""
@@ -185,6 +231,8 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         if family == FAMILY_X_ROUTE:
             return f"X-ROUTE? {self.x_outputs[output - 1]}"
         if family == FAMILY_ROUTE:
+            if self.profile:
+                return f"ROUTE? {self.profile.route_layer},{self.profile.output_ids[output - 1]}"
             return f"ROUTE? 1,{output}"
         return f"VID? {output}"
 
@@ -199,6 +247,15 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
             if output is None or input_id is None:
                 return {}
             return {output: input_id}
+        if family == FAMILY_ROUTE and self.profile:
+            physical = parse_route(message, family, layer=self.profile.route_layer)
+            input_lookup = {port: number for number, port in enumerate(self.profile.input_ids, 1)}
+            output_lookup = {port: number for number, port in enumerate(self.profile.output_ids, 1)}
+            return {
+                output_lookup[dest]: input_lookup[source]
+                for dest, source in physical.items()
+                if dest in output_lookup and source in input_lookup
+            }
         return parse_route(message, family)
 
     def _handle_message(self, message: KramerMessage) -> None:
@@ -240,7 +297,12 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         if self.family != FAMILY_VID and source == 0:
             raise ValueError("Disconnect is only supported with the VID command family")
         if self.family == FAMILY_ROUTE:
-            command = f"ROUTE 1,{output},{source}"
+            if self.profile:
+                physical_output = self.profile.output_ids[output - 1]
+                physical_source = self.profile.input_ids[source - 1]
+                command = f"ROUTE {self.profile.route_layer},{physical_output},{physical_source}"
+            else:
+                command = f"ROUTE 1,{output},{source}"
         elif self.family == FAMILY_X_ROUTE:
             command = f"X-ROUTE {self.x_outputs[output - 1]},{self.x_inputs[source - 1]}"
         else:

@@ -11,6 +11,9 @@ from .const import (
     CONF_INPUTS,
     CONF_INPUT_NAMES,
     CONF_OUTPUTS,
+    CONF_PROFILE_MODE,
+    PROFILE_AUTO,
+    PROFILE_GENERIC,
     CONF_OUTPUT_NAMES,
     CONF_POLL_INTERVAL,
     CONF_TRANSPORT,
@@ -44,6 +47,9 @@ STEP_SCHEMA = vol.Schema(
         ),
         vol.Required(CONF_COMMAND_FAMILY, default=FAMILY_AUTO): vol.In(
             [FAMILY_AUTO, FAMILY_ROUTE, FAMILY_VID, FAMILY_X_ROUTE]
+        ),
+        vol.Required(CONF_PROFILE_MODE, default=PROFILE_AUTO): vol.In(
+            [PROFILE_AUTO, PROFILE_GENERIC]
         ),
     }
 )
