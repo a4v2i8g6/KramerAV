@@ -14,7 +14,7 @@ from typing import Literal
 from .protocol import KramerMessage
 
 
-ControlKind = Literal["switch", "number", "select"]
+ControlKind = Literal["switch", "number", "select", "binary_sensor"]
 
 
 @dataclass(frozen=True)
@@ -32,12 +32,16 @@ class ControlSpec:
     true_value: int = 1
     false_value: int = 0
     config: bool = False
+    read_only: bool = False
+    enabled_default: bool = True
 
     def get_command(self) -> str:
         args = ",".join(map(str, self.address))
         return f"{self.command}?" + (f" {args}" if args else "")
 
     def set_command(self, value: int) -> str:
+        if self.read_only:
+            raise ValueError(f"{self.key} is read-only")
         if not self.accepts(value):
             raise ValueError(f"{value} is outside the supported values for {self.key}")
         args = ",".join(map(str, (*self.address, value)))
@@ -46,7 +50,7 @@ class ControlSpec:
     def accepts(self, value: object) -> bool:
         if type(value) is not int:  # bool must be converted explicitly by HA entities
             return False
-        if self.kind == "switch":
+        if self.kind in ("switch", "binary_sensor"):
             return value in (self.false_value, self.true_value)
         if self.kind == "select":
             return value in (code for code, _ in self.choices)
@@ -129,4 +133,77 @@ def candidate_controls(model: str, output_count: int) -> list[ControlSpec]:
             ControlSpec("output_resolution", "Output resolution", "select", "VID-RES", (1, 1, 0),
                         choices=_VP444_RESOLUTIONS, config=True),
         ))
+    # Unlike a common Protocol 3000 command name, the *address format* and
+    # valid range have to be obtained from an exact model manual. All additions
+    # below are tested using read-only queries before they become entities.
+    model_id = model.strip().upper()
+    if model_id == "VP-444":
+        controls.extend((
+            ControlSpec("mic_1_gain", "Microphone 1 gain", "number", "MIC-GAIN", (0, 0), 0, 100),
+            ControlSpec("mic_2_gain", "Microphone 2 gain", "number", "MIC-GAIN", (0, 1), 0, 100),
+            ControlSpec("mic_mix", "Microphone mix", "select", "MIX", (1,),
+                        choices=((0, "Off"), (1, "Microphone 1"), (2, "Microphone 2"),
+                                 (3, "Both microphones"))),
+            ControlSpec("talkover_mode", "Talkover mode", "select", "TLK", (1,),
+                        choices=((0, "Off"), (1, "Mixer"), (2, "Talkover"), (3, "Microphone only"))),
+            ControlSpec("image_size", "Image size", "select", "IMAGE-PROP", (1,),
+                        choices=((0, "Overscan"), (1, "Full"), (2, "Best fit"),
+                                 (3, "Pan scan"), (4, "Letterbox"),
+                                 (5, "Underscan 2"), (6, "Underscan 1")), config=True),
+        ))
+        for parameter, name, maximum in (
+            (0, "Depth (%)", 100),
+            (1, "Trigger (Kramer units)", 100),
+            (2, "Attack (centiseconds)", 200),
+            (3, "Hold (centiseconds)", 200),
+            (4, "Release (centiseconds)", 200),
+        ):
+            controls.append(ControlSpec(
+                f"talkover_param_{parameter}", f"Talkover {name}", "number",
+                "MIC-TLK", (0, parameter), 0, maximum, config=True,
+            ))
+        # VP-444 HDMI inputs are zero-based for HDCP control; outputs are also
+        # zero-based, and the mode codes differ between input and output.
+        for input_port in range(10):
+            controls.append(ControlSpec(
+                f"hdcp_input_{input_port + 1}", f"HDMI {input_port + 1} HDCP mode", "select",
+                "HDCP-MOD", (0, input_port), choices=((0, "Off"), (1, "On")),
+                config=True, enabled_default=False,
+            ))
+        for output_port in range(2):
+            controls.append(ControlSpec(
+                f"hdcp_output_{output_port + 1}", f"HDMI output {output_port + 1} HDCP", "select",
+                "HDCP-MOD", (1, output_port),
+                choices=((2, "Follow input"), (3, "Follow output")),
+                config=True, enabled_default=False,
+            ))
+            controls.append(ControlSpec(
+                f"display_connected_{output_port + 1}", f"HDMI output {output_port + 1} connected",
+                "binary_sensor", "DISPLAY", (output_port,), read_only=True,
+            ))
+    elif model_id == "VP-440":
+        controls.extend((
+            ControlSpec("microphone_gain", "Microphone gain", "number", "MIC-GAIN", (0, 0), 0, 100),
+            ControlSpec("talkover_mode", "Talkover mode", "select", "TLK", (1,),
+                        choices=((0, "Off"), (1, "Mixer"), (2, "Talkover"), (3, "Microphone only"))),
+        ))
+    elif model_id == "VP-558":
+        # VP-558 manual distinguishes its 1-based HDMI/HDBaseT routing IDs from
+        # the per-output HDCP channel numbering (1..4).
+        controls.append(ControlSpec(
+            "microphone_gain", "Microphone gain", "number", "MIC-GAIN", (0,), 0, 100,
+        ))
+        for out in range(1, 5):
+            controls.append(ControlSpec(
+                f"hdcp_output_{out}", f"Output {out} HDCP", "select", "HDCP-MOD", (1, out),
+                choices=((2, "Follow input"), (3, "Follow output")),
+                config=True, enabled_default=False,
+            ))
+        for band, frequency in ((0, "120 Hz"), (1, "200 Hz"), (3, "500 Hz"),
+                                (4, "1200 Hz"), (5, "3000 Hz"), (6, "7500 Hz"),
+                                (8, "12000 Hz")):
+            controls.append(ControlSpec(
+                f"audio_eq_{band}", f"Audio out EQ {frequency} (0-40)", "number",
+                "EQ-LVL", (0, band), 0, 40, config=True, enabled_default=False,
+            ))
     return controls

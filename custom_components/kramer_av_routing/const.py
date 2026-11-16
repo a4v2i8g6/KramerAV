@@ -26,4 +26,6 @@ FAMILY_ROUTE = "route"
 FAMILY_VID = "vid"
 FAMILY_X_ROUTE = "x_route"
 
-PLATFORMS = [Platform.SELECT, Platform.SWITCH, Platform.NUMBER]
+PLATFORMS = [
+    Platform.SELECT, Platform.SWITCH, Platform.NUMBER, Platform.BINARY_SENSOR, Platform.BUTTON,
+]

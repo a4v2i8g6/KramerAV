@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 (2026-11-15) — model-specific advanced audio, HDCP, and presets
+
+- Added read-back-verified HDCP input/output controls for VP-444, and output HDCP controls for VP-558; these are disabled by default to prevent interruptions.
+- Added VP-444 mic 1/2 gain, mixer and talkover modes, detailed talkover timings, image-size selector, and read-only HDMI display-connection sensors.
+- Added model-specific VP-440 microphone gain/talkover and VP-558 microphone gain plus main analog output EQ bands.
+- Added optional saved-preset discovery (`PRST-LST?`) and recall buttons (`PRST-RCL`), without any preset storage/deletion commands.
+- Added `button` and `binary_sensor` platforms, and restricted all optional advanced controls to read-only verified queries.
+- Added support for immediate rejection of generic `ERR 002` responses instead of timing out.
+- Added simulated UDP and TCP device tests for HDCP/mic status, address-specific feedback, read-only discovery, and safe preset recall (42 local tests passed).
+- EDID writing and real-device validation remain out of scope for this alpha release.
+
 ## 0.4.0 (2026-11-15) — optional capability-aware controls
 
 - Added read-only capability detection for front-panel lock, standby, audio mute, video output enabled, and freeze; common controls use strictly matched output addresses and are omitted if unsupported.

@@ -27,6 +27,7 @@ from .const import (
 )
 from .profiles import VPProfile, profile_for_model
 from .capabilities import ControlSpec, candidate_controls
+from .presets import parse_saved_presets, parse_recalled_preset
 from .protocol import (
     KramerClient,
     KramerConnectionError,
@@ -56,6 +57,7 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.profile: VPProfile | None = None
         self.capabilities: dict[str, ControlSpec] = {}
         self.control_values: dict[str, int] = {}
+        self.saved_presets: tuple[int, ...] = ()
         # Extended Protocol 3000 uses typed signal IDs, not contiguous port numbers.
         self.x_inputs: list[SignalId] = []
         self.x_outputs: list[SignalId] = []
@@ -142,6 +144,7 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
                         "Select a command family manually or provide a device-specific profile."
                     )
         await self._discover_controls()
+        await self._discover_presets()
         _LOGGER.info(
             "Kramer %s connected over %s; %d inputs, %d outputs; routing family %s",
             self.model,
@@ -178,6 +181,35 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.control_values[spec.key] = value
         _LOGGER.debug("Detected %d optional controls on %s: %s", len(self.capabilities),
                       self.model, list(self.capabilities))
+
+    async def _discover_presets(self) -> None:
+        """Probe stored presets; never create or overwrite presets at startup."""
+        # VP-444's published command table has no preset commands.
+        if self.model.strip().upper() in ("VP-444", "VP-440", "VP-440X"):
+            return
+        try:
+            reply = await self.client.command(
+                "PRST-LST?",
+                matcher=lambda msg: parse_saved_presets(msg) is not None,
+                timeout=1.5,
+            )
+            result = parse_saved_presets(reply)
+            if result is not None:
+                self.saved_presets = result
+        except KramerError as exc:
+            _LOGGER.debug("Preset list not supported by %s: %s", self.model, exc)
+
+    async def async_recall_preset(self, preset: int) -> None:
+        """Recall only a slot observed in the read-only saved-preset list."""
+        if type(preset) is not int or preset not in self.saved_presets:
+            raise ValueError(f"Preset {preset} was not confirmed as saved")
+        reply = await self.client.command(
+            f"PRST-RCL {preset}",
+            matcher=lambda msg: parse_recalled_preset(msg) == preset,
+        )
+        if parse_recalled_preset(reply) != preset:
+            raise KramerError("Device did not acknowledge the preset recall")
+        await self.async_request_refresh()
 
     async def async_set_control(self, key: str, value: int) -> None:
         """Write only a previously verified capability with a valid value."""

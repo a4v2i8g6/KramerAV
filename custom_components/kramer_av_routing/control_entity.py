@@ -18,6 +18,7 @@ class KramerControlEntity(CoordinatorEntity[KramerCoordinator]):
         super().__init__(coordinator)
         self.spec = spec
         self._attr_name = spec.name
+        self._attr_entity_registry_enabled_default = spec.enabled_default
         self._attr_unique_id = f"{coordinator.entry.entry_id}_control_{spec.key}"
         if spec.config:
             self._attr_entity_category = EntityCategory.CONFIG

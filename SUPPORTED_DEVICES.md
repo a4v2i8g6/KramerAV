@@ -60,3 +60,19 @@ Optional controls are enabled only after successful, parameter-matching read-onl
 - Numeric volume/ranges and codec-/scaler-specific settings are intentionally **not guessed** for other models.
 
 All model compatibility remains experimental. Please report actual model, firmware revision, transport, and which controls were observed to work; never post network credentials or private IP addresses in public reports.
+
+## v0.5.0 advanced capability profiles
+
+- **VP-444**: Inputs 0–9 expose HDCP on/off; HDMI outputs 0–1 expose HDCP follow-input/follow-output. The `DISPLAY?` status of those two physical HDMI connectors is shown through binary sensors when supported. Mic 1/2 gain, mix, talkover and `MIC-TLK` parameters are supported through model-specific read-only probe/feedback.
+- **VP-440**: One microphone gain and talkover mode candidate, only enabled after successful matching status replies. Other scaler commands remain unchanged.
+- **VP-558**: Microphone gain for logical mic channel 0; output HDCP modes for 1–4; seven EQ bands for the independent analog audio output (`EQ-LVL` output 0), read-only queried before creating controls.
+- **Other devices**: When a valid `PRST-LST?` returns saved preset IDs, one recall button is created per saved preset (maximum 64). The VP-444, VP-440, and VP-440X skip this capability probe because their published documentation does not establish preset support. No EDID writes or preset save/delete.
+
+The model-specific command definitions are grounded in these references:
+
+- [Kramer VP-444 Protocol 3000 command list](https://k.kramerav.com/downloads/protocols/vp-444_rs232_20150326v6.pdf)
+- [Kramer VP-444 user manual (microphone/talkover)](https://k.kramerav.com/downloads/manuals/vp-444.pdf)
+- [Kramer VP-558 manual](https://k.kramerav.com/downloads/manuals/vp-558_rev_4.pdf)
+- [Kramer Protocol 3000 preset reference](https://k.kramerav.com/downloads/protocols/protocol_3000_3.0_master_user.pdf)
+
+**Verification status:** 42 simulated unit/integration tests passed locally. Live VP-444 connection over UDP has been reported by a user; no additional v0.5.0 controls are yet hardware-tested. This is not a per-model certification.

@@ -63,6 +63,8 @@ def _load_local_source():
         'homeassistant.components.select': types.ModuleType('homeassistant.components.select'),
         'homeassistant.components.switch': types.ModuleType('homeassistant.components.switch'),
         'homeassistant.components.number': types.ModuleType('homeassistant.components.number'),
+        'homeassistant.components.button': types.ModuleType('homeassistant.components.button'),
+        'homeassistant.components.binary_sensor': types.ModuleType('homeassistant.components.binary_sensor'),
         'homeassistant.helpers.entity': types.ModuleType('homeassistant.helpers.entity'),
         'homeassistant.exceptions': types.ModuleType('homeassistant.exceptions'),
         'homeassistant.helpers': types.ModuleType('homeassistant.helpers'),
@@ -70,10 +72,13 @@ def _load_local_source():
         'homeassistant.helpers.update_coordinator': types.ModuleType('homeassistant.helpers.update_coordinator'),
     }
     stubs['homeassistant.core'].HomeAssistant = type('HomeAssistant', (), {})
-    stubs['homeassistant.const'].Platform = types.SimpleNamespace(SELECT='select', SWITCH='switch', NUMBER='number')
+    stubs['homeassistant.const'].Platform = types.SimpleNamespace(SELECT='select', SWITCH='switch', NUMBER='number', BUTTON='button', BINARY_SENSOR='binary_sensor')
     stubs['homeassistant.components.select'].SelectEntity = SelectEntityStub
     stubs['homeassistant.components.switch'].SwitchEntity = type('SwitchEntity', (), {})
     stubs['homeassistant.components.number'].NumberEntity = type('NumberEntity', (), {})
+    stubs['homeassistant.components.button'].ButtonEntity = type('ButtonEntity', (), {})
+    stubs['homeassistant.components.binary_sensor'].BinarySensorEntity = type('BinarySensorEntity', (), {})
+    stubs['homeassistant.components.binary_sensor'].BinarySensorDeviceClass = types.SimpleNamespace(CONNECTIVITY='connectivity')
     stubs['homeassistant.helpers.entity'].EntityCategory = types.SimpleNamespace(CONFIG='config')
     stubs['homeassistant.exceptions'].HomeAssistantError = HomeAssistantErrorStub
     stubs['homeassistant.helpers.device_registry'].DeviceInfo = dict
@@ -86,7 +91,7 @@ def _load_local_source():
     sys.modules[PKG] = pkg
     sys.modules.update(stubs)
     try:
-        for mod in ('const', 'protocol', 'profiles', 'capabilities', 'coordinator', 'control_entity', 'select', 'switch', 'number'):
+        for mod in ('const', 'protocol', 'profiles', 'capabilities', 'presets', 'coordinator', 'control_entity', 'select', 'switch', 'number', 'binary_sensor', 'button'):
             module_name = f'{PKG}.{mod}'
             spec = importlib.util.spec_from_file_location(module_name, ROOT / f'{mod}.py')
             module = importlib.util.module_from_spec(spec)

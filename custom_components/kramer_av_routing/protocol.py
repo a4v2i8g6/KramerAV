@@ -310,6 +310,12 @@ class KramerClient:
         if message.command == "ERR" and re.match(r"\s*\d+\b", message.payload):
             self._pending.set_exception(KramerCommandError(message.raw))
             return
+        # Some devices report an unsupported command as ~01@ERR 002 rather
+        # than as ~01@COMMAND ERR003. Treat this as a rejection immediately,
+        # instead of waiting for the full network timeout.
+        if message.command == "ERR" and re.match(r"^\s*\d{1,3}\b", message.payload):
+            self._pending.set_exception(KramerCommandError(message.raw))
+            return
         if message.command != self._pending_key and not (
             self._pending_key == "VID" and message.command == "AV"
         ):
