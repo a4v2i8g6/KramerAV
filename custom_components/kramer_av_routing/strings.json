@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Add Kramer Protocol 3000 device",
+        "title": "Add Kramer AV device",
         "description": "Enter the address. Leave counts at 0 to discover a known VP device profile, SIGNALS-LIST? (X-ROUTE), or INFO-IO?. TCP typically uses port 5000 and UDP port 50000.",
         "data": {
           "host": "Host or IP address",
@@ -30,7 +30,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Kramer AV routing options",
+        "title": "Kramer AV options",
         "description": "Comma-separated friendly names in physical port order. Leave an item blank to retain its numeric label. Names are suffixes, e.g. 'Input 1 — PC'.",
         "data": {
           "input_names": "Input names (CSV)",

@@ -1,5 +1,5 @@
 {
-  "name": "Kramer AV Routing (Protocol 3000)",
+  "name": "Kramer AV",
   "render_readme": true,
   "homeassistant": "2025.1.0"
 }

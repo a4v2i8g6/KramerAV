@@ -1,3 +1,10 @@
+## 0.5.1-alpha — Display name and branding
+
+- Renamed the Home Assistant integration display name to **Kramer AV**.
+- Added bundled brand icon and light/dark logos (Home Assistant 2026.3+).
+- Kept the integration domain and config entries unchanged.
+- No changes to device communication, control commands, or entities.
+
 # Changelog
 
 ## 0.5.0 (2026-11-15) — model-specific advanced audio, HDCP, and presets

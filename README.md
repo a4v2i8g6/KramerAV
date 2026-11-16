@@ -1,6 +1,6 @@
-# KramerAV — Kramer Protocol 3000 routing for Home Assistant
+# Kramer AV
 
-**Version 0.5.0-alpha — experimental. Advanced controls have been tested against simulated devices, not verified on live hardware.**
+**Version 0.5.1-alpha — experimental. Advanced controls have been tested against simulated devices, not verified on live hardware.**
 
 A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and presentation switchers.
 
@@ -19,7 +19,7 @@ A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and pre
 - Supports user-defined labels and periodic routing-status refresh.
 - Installs separately from the original Protocol 2000 integration; no Protocol 2000 or `kessler-av` dependency.
 
-## Optional controls in v0.4.0 and v0.5.0
+## Optional controls in v0.4.0 and v0.5.1
 
 After routing discovery, KramerAV tries **read-only status queries** for common Protocol 3000 functions. A new entity is created **only when the exact command and physical address return a value with the expected format**. Unsupported controls are omitted. Supported controls are refreshed alongside routing; unsolicited feedback is also processed. Failure of an optional control poll does not bring down video routing.
 
@@ -41,7 +41,7 @@ New controls share the same Home Assistant device as the routing selectors. They
 
 **Operational caution:** Standby, video enable/blank, and resolution changes may interrupt output. Test locally before using automations. A source selector is independent of these extra controls.
 
-## Advanced controls added in v0.5.0
+## Advanced controls added in v0.5.1
 
 The following entities are created **only after a read-only query returns a valid value** for the exact physical address. Their write commands are not used during setup. A successful query does **not** prove the device permits writes; for example, `HDCP-MOD` writes may require administrator permissions.
 
@@ -92,7 +92,7 @@ See [SUPPORTED_DEVICES.md](SUPPORTED_DEVICES.md) for documentation sources and t
 1. Download the source ZIP from the repository or the supplied alpha package.
 2. Copy `custom_components/kramer_av_routing` into Home Assistant's `/config/custom_components/` folder, replacing the previous folder if upgrading.
 3. Restart Home Assistant.
-4. Go to **Settings → Devices & services → Add integration** and select **Kramer AV Routing (Protocol 3000)**.
+4. Go to **Settings → Devices & services → Add integration** and select **Kramer AV**.
 5. Enter the host/IP, transport, and port. **TCP often uses 5000; UDP often uses 50000**, depending on device model.
 6. Leave input and output counts at `0` for auto detection, including known VP profiles. Select **Auto** routing family and **Auto** device profile mode (default). Probe order is Extended → verified VP model profile → generic ROUTE → VID. Use **Generic** profile mode only if you need to bypass known VP model routing conventions after consulting the manual.
 7. In the integration's **Configure** options, supply optional comma-separated input and output names and a polling interval.
@@ -187,3 +187,18 @@ The included `.github/workflows/validate.yml` adds automated Python tests and Ho
 - [Original Protocol 2000 Home Assistant integration](https://github.com/krohrbaugh/kramer-homeassistant) (inspiration only)
 
 MIT licensed. Independent community project; not affiliated with Kramer Electronics.
+
+
+## Branding
+
+The integration appears as **Kramer AV** in Home Assistant. The integration domain
+remains `kramer_av_routing` to preserve existing entries and entity IDs.
+
+Home Assistant 2026.3+ supports bundled icons and logos in
+`custom_components/kramer_av_routing/brand/`. These are intended to appear in
+**Settings → Devices & services**. HACS listing artwork may be displayed differently.
+
+Kramer is a trademark of its respective owner. This is an unofficial,
+independent Home Assistant integration, not affiliated with or endorsed by Kramer.
+The icon uses Kramer's recognizable loop symbol; the accompanying wordmark uses
+a locally rendered font. Replace with manufacturer-provided artwork if needed.
