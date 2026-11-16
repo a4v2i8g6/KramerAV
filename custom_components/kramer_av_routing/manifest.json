@@ -1,7 +1,7 @@
 {
   "domain": "kramer_av_routing",
   "name": "Kramer AV Routing (Protocol 3000)",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "config_flow": true,
   "requirements": [],
   "dependencies": [],

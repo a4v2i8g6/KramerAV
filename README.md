@@ -1,6 +1,6 @@
 # KramerAV — Kramer Protocol 3000 routing for Home Assistant
 
-**Version 0.3.1 — experimental / alpha. No real Kramer hardware has been tested.**
+**Version 0.4.0-alpha — experimental. New optional controls have only been tested against simulators.**
 
 A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and presentation switchers.
 
@@ -19,6 +19,28 @@ A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and pre
 - Supports user-defined labels and periodic routing-status refresh.
 - Installs separately from the original Protocol 2000 integration; no Protocol 2000 or `kessler-av` dependency.
 
+## Optional controls in v0.4.0
+
+After routing discovery, KramerAV tries **read-only status queries** for common Protocol 3000 functions. A new entity is created **only when the exact command and physical address return a value with the expected format**. Unsupported controls are omitted. Supported controls are refreshed alongside routing; unsolicited feedback is also processed. Failure of an optional control poll does not bring down video routing.
+
+| Function | HA platform | Discovery | Notes |
+| --- | --- | --- | --- |
+| Front-panel lock | `switch` | `LOCK-FP?` | Global, if supported |
+| Standby | `switch` | `STANDBY?` | Global; may interrupt communication on some devices |
+| Audio mute | `switch` | `MUTE? <output>` | Each responding output (common 1-based IDs) |
+| Video output enabled | `switch` | `VMUTE? <output>` | **1 = video on**; not a 'mute enabled' semantic inversion |
+| Video freeze | `switch` | `VFRZ? <output>` | Scaler/output-dependent |
+| VP-444 output volume | `number` | `AUD-LVL? 1,0` | 0–100 **Kramer units**, **not dB** |
+| VP-444 output resolution | `select` | `VID-RES? 1,1,0` | 24 documented choices (codes 200–223) |
+| VP-444 auto-sync off | `select` | `SCLR-AS? 1` | Disabled/Fast/Slow |
+| VP-444 audio delay | `select` | `SCLR-AUDIO-DELAY? 1` | Off/40/110/150 ms |
+
+**Why not expose every function on every device?** Protocol 3000 does not guarantee uniform channel IDs or ranges between models. Generic devices are probed for common switches using 1-based output numbering, up to 16 outputs; an unsupported first output skips further probes of that command family. Correct responses enable controls, but **do not certify that the model's semantics match every other model**. Model-specific options with nonstandard parameters (e.g. volume, resolution, microphone) must be documented and tested before being enabled. The VP-444 has the first expanded parameter mappings.
+
+New controls share the same Home Assistant device as the routing selectors. They will be absent if the required query is rejected, times out, or returns a malformed/out-of-range value. Probes never send write commands. Device-specific extra controls are *not* required for basic video routing.
+
+**Operational caution:** Standby, video enable/blank, and resolution changes may interrupt output. Test locally before using automations. A source selector is independent of these extra controls.
+
 ## Compatibility notes
 
 This is *not* verified universal support for all VS, VP, MTX or Kramer devices. Protocol 3000 is a command protocol, not a guarantee of identical commands or capabilities. **Five specific VP models have now been mapped**, but other VP/scaler outputs, modular chassis, input groups or switchers still require documented model-specific profiles. Devices may advertise signals that are not routable with every output. Authentication and RS-232 devices are not covered yet.
@@ -27,7 +49,7 @@ This is *not* verified universal support for all VS, VP, MTX or Kramer devices. 
 
 For X-ROUTE devices, logical `Input 1`, `Input 2` and `Output 1`, `Output 2` refer to the order of the VIDEO signals returned by `SIGNALS-LIST?`, **not necessarily the printed port number**. The UI appends the physical connector name (for example `Input 2 (HDMI 2)` and `Output 1 (HDBT 4)`). X-ROUTE output entity unique IDs are tied to physical signal IDs.
 
-## VP device profiles (0.3.1)
+## VP device routing profiles (0.4.0)
 
 | MODEL? response | Sources | Home Assistant outputs | Routing details |
 | --- | ---: | ---: | --- |
@@ -61,9 +83,9 @@ See [SUPPORTED_DEVICES.md](SUPPORTED_DEVICES.md) for documentation sources and t
 
 For a **VP-444**, select **UDP** and port **50000** when adding the integration. TCP is not available on this model. Leave **Inputs = 0** and **Outputs = 0**, select **Auto** command family and **Auto** device profile. After the read-only profile verification, the device should expose **one source selector** (12 sources), controlling the shared scaler feeding both HDMI output connectors.
 
-Source mapping is HDMI 1–10 = physical IDs 0–9; PC 1–2 = physical IDs 10–11. A normal source choice uses `#ROUTE 12,1,<physical input>`; layer 12 changes audio and video together. This integration does not yet control VP-444 volume, microphone mixing, or independent audio processing. The exact model must report `MODEL VP-444` and respond to `ROUTE? 12,1` for automatic profile activation. See the [official VP-444 manual](https://k.kramerav.com/downloads/manuals/vp-444.pdf).
+Source mapping is HDMI 1–10 = physical IDs 0–9; PC 1–2 = physical IDs 10–11. A normal source choice uses `#ROUTE 12,1,<physical input>`; layer 12 changes audio and video together. This release adds optional VP-444 output volume, resolution, audio delay and auto-sync settings after read-only query validation. Microphone mixing and independent audio routing are not yet available. The exact model must report `MODEL VP-444` and respond to `ROUTE? 12,1` for automatic profile activation. See the [official VP-444 manual](https://k.kramerav.com/downloads/manuals/vp-444.pdf).
 
-## VP-specific command examples## VP-specific command examples
+## VP-specific command examples
 
 The physical IDs are *not* the same as the Home Assistant 1-based selector positions:
 
@@ -117,7 +139,7 @@ python -m unittest discover -s tests -v
 python -m compileall -q custom_components/kramer_av_routing
 ```
 
-The test suite includes TCP/UDP protocol simulation, Extended signal-ID parsing, status feedback, legacy fallback, VP profile mappings (including 0-based destinations/inputs and layer 12), and coordinator/entity route handling using lightweight Home Assistant test stubs. It does not replace full Home Assistant integration or real-device testing.
+The 37-test suite includes TCP/UDP protocol simulation, Extended signal-ID parsing, legacy fallback, VP profile mapping, capability discovery, confirmed optional-control writes, and Home Assistant entity logic using lightweight stubs. It does not replace full Home Assistant integration or real-device testing.
 
 Enable optional logging in `configuration.yaml`:
 
@@ -133,7 +155,8 @@ The included `.github/workflows/validate.yml` adds automated Python tests and Ho
 
 - Independent audio routing and audio-follow-video controls.
 - RS-232/serial, authenticated connections, TLS.
-- Presets, signal detection, scaler controls, EDID, auto-switch controls.
+- Presets, signal detection, microphone processing, HDCP and EDID editing.
+- General-purpose volume and scaler parameters for models beyond the currently documented VP-444 controls.
 - Routed subset discovery and user-selectable signal/port filtering for complex modular devices.
 - Per-model routing restrictions, multiple destinations, nonstandard source/destination semantics.
 - More hardware profiles and validated compatibility lists (only the five documented VP profiles above currently exist).

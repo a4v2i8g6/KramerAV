@@ -50,3 +50,13 @@ Example: `#ROUTE? 12,1` to read the source; `#ROUTE 12,1,2` to select HDMI 3; `#
 - Hardware compatibility certification: **none**.
 
 Additional models (for example VP-772, VP-732, VP-428H2 and other revisions) require a verified per-model command table before being added. Generic `ROUTE`/`VID` and extended `X-ROUTE` support may already work for some, but there are no specific verified profiles for them.
+
+## v0.4.0 additional controls
+
+Optional controls are enabled only after successful, parameter-matching read-only queries:
+
+- **VP-444:** common audio mute, video enabled, freeze, front-panel lock, standby; output volume 0–100 Kramer units; resolution, auto sync off and audio delay. The latter four are described in the VP-444 manual: https://k.kramerav.com/downloads/manuals/vp-444.pdf. No live advanced-control verification yet.
+- **VP-440, VP-440X, VP-558, VP-778, VS-family and other Protocol 3000 matrices:** best-effort probes for `LOCK-FP?`, `STANDBY?`, and `MUTE?`/`VMUTE?`/`VFRZ?` on 1-based output IDs. Actual functionality is **unknown until hardware-tested**. The absence of a control is not a device fault.
+- Numeric volume/ranges and codec-/scaler-specific settings are intentionally **not guessed** for other models.
+
+All model compatibility remains experimental. Please report actual model, firmware revision, transport, and which controls were observed to work; never post network credentials or private IP addresses in public reports.

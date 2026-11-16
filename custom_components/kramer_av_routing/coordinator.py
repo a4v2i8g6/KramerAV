@@ -26,6 +26,7 @@ from .const import (
     TRANSPORT_TCP,
 )
 from .profiles import VPProfile, profile_for_model
+from .capabilities import ControlSpec, candidate_controls
 from .protocol import (
     KramerClient,
     KramerConnectionError,
@@ -53,6 +54,8 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.firmware_version = ""
         self.family = entry.data[CONF_COMMAND_FAMILY]
         self.profile: VPProfile | None = None
+        self.capabilities: dict[str, ControlSpec] = {}
+        self.control_values: dict[str, int] = {}
         # Extended Protocol 3000 uses typed signal IDs, not contiguous port numbers.
         self.x_inputs: list[SignalId] = []
         self.x_outputs: list[SignalId] = []
@@ -138,6 +141,7 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
                         "No supported routing query (X-ROUTE?/ROUTE?/VID?). "
                         "Select a command family manually or provide a device-specific profile."
                     )
+        await self._discover_controls()
         _LOGGER.info(
             "Kramer %s connected over %s; %d inputs, %d outputs; routing family %s",
             self.model,
@@ -146,6 +150,47 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.outputs,
             self.family,
         )
+
+    async def _discover_controls(self) -> None:
+        """Enable optional entities only after confirmed read-only queries.
+
+        To limit unsupported-command timeouts, the first output is used as a
+        capability probe for generic MUTE/VMUTE/VFRZ commands. If that fails,
+        higher output numbers in that family are skipped.
+        """
+        rejected: set[str] = set()
+        for spec in candidate_controls(self.model, self.outputs):
+            if spec.command in rejected:
+                continue
+            try:
+                response = await self.client.command(
+                    spec.get_command(), matcher=lambda msg, s=spec: s.decode(msg) is not None,
+                    timeout=1.5,
+                )
+                value = spec.decode(response)
+                if value is None:
+                    continue
+            except KramerError as exc:
+                rejected.add(spec.command)
+                _LOGGER.debug("Optional control %s unavailable on %s: %s", spec.key, self.model, exc)
+                continue
+            self.capabilities[spec.key] = spec
+            self.control_values[spec.key] = value
+        _LOGGER.debug("Detected %d optional controls on %s: %s", len(self.capabilities),
+                      self.model, list(self.capabilities))
+
+    async def async_set_control(self, key: str, value: int) -> None:
+        """Write only a previously verified capability with a valid value."""
+        spec = self.capabilities[key]
+        if not spec.accepts(value):
+            raise ValueError(f"Invalid value for {key}: {value}")
+        response = await self.client.command(
+            spec.set_command(value), matcher=lambda msg: spec.decode(msg) == value
+        )
+        if spec.decode(response) != value:
+            raise KramerError(f"No matching feedback for {key}")
+        self.control_values[key] = value
+        self.async_update_listeners()
 
     async def _activate_vp_profile(self, profile: VPProfile) -> None:
         """Verify the exact model's physical routing IDs without changing it."""
@@ -259,6 +304,14 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         return parse_route(message, family)
 
     def _handle_message(self, message: KramerMessage) -> None:
+        updated = False
+        for key, spec in self.capabilities.items():
+            value = spec.decode(message)
+            if value is not None and self.control_values.get(key) != value:
+                self.control_values[key] = value
+                updated = True
+        if updated:
+            self.async_update_listeners()
         if self.family not in (FAMILY_ROUTE, FAMILY_VID, FAMILY_X_ROUTE):
             return
         routes = self._routes_from_message(message, self.family)
@@ -288,6 +341,20 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
                 routes[output] = result[output]
         except (KramerError, OSError, asyncio.TimeoutError) as exc:
             raise UpdateFailed(f"Kramer routing poll failed: {exc}") from exc
+        # Optional capabilities must not bring down otherwise functional video
+        # routing. Mark only the failed control unavailable until it recovers.
+        for key, spec in self.capabilities.items():
+            try:
+                message = await self.client.command(
+                    spec.get_command(), matcher=lambda msg, s=spec: s.decode(msg) is not None
+                )
+                value = spec.decode(message)
+                if value is not None:
+                    self.control_values[key] = value
+            except (KramerError, OSError, asyncio.TimeoutError) as exc:
+                self.control_values.pop(key, None)
+                _LOGGER.debug("Optional control poll failed for %s: %s", key, exc)
+        self.async_update_listeners()
         return routes
 
     async def async_set_route(self, output: int, source: int) -> None:

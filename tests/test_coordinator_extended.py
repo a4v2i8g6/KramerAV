@@ -61,14 +61,20 @@ def _load_local_source():
         'homeassistant.const': types.ModuleType('homeassistant.const'),
         'homeassistant.components': types.ModuleType('homeassistant.components'),
         'homeassistant.components.select': types.ModuleType('homeassistant.components.select'),
+        'homeassistant.components.switch': types.ModuleType('homeassistant.components.switch'),
+        'homeassistant.components.number': types.ModuleType('homeassistant.components.number'),
+        'homeassistant.helpers.entity': types.ModuleType('homeassistant.helpers.entity'),
         'homeassistant.exceptions': types.ModuleType('homeassistant.exceptions'),
         'homeassistant.helpers': types.ModuleType('homeassistant.helpers'),
         'homeassistant.helpers.device_registry': types.ModuleType('homeassistant.helpers.device_registry'),
         'homeassistant.helpers.update_coordinator': types.ModuleType('homeassistant.helpers.update_coordinator'),
     }
     stubs['homeassistant.core'].HomeAssistant = type('HomeAssistant', (), {})
-    stubs['homeassistant.const'].Platform = types.SimpleNamespace(SELECT='select')
+    stubs['homeassistant.const'].Platform = types.SimpleNamespace(SELECT='select', SWITCH='switch', NUMBER='number')
     stubs['homeassistant.components.select'].SelectEntity = SelectEntityStub
+    stubs['homeassistant.components.switch'].SwitchEntity = type('SwitchEntity', (), {})
+    stubs['homeassistant.components.number'].NumberEntity = type('NumberEntity', (), {})
+    stubs['homeassistant.helpers.entity'].EntityCategory = types.SimpleNamespace(CONFIG='config')
     stubs['homeassistant.exceptions'].HomeAssistantError = HomeAssistantErrorStub
     stubs['homeassistant.helpers.device_registry'].DeviceInfo = dict
     stubs['homeassistant.helpers.update_coordinator'].DataUpdateCoordinator = CoordinatorStub
@@ -80,7 +86,7 @@ def _load_local_source():
     sys.modules[PKG] = pkg
     sys.modules.update(stubs)
     try:
-        for mod in ('const', 'protocol', 'coordinator', 'select'):
+        for mod in ('const', 'protocol', 'profiles', 'capabilities', 'coordinator', 'control_entity', 'select', 'switch', 'number'):
             module_name = f'{PKG}.{mod}'
             spec = importlib.util.spec_from_file_location(module_name, ROOT / f'{mod}.py')
             module = importlib.util.module_from_spec(spec)
@@ -133,7 +139,7 @@ class MatrixStub:
                 elif cmd == '#ROUTE 1,1,1':
                     reply = '~01@ROUTE 1,1,1\r\n'
                 else:
-                    reply = '~01@ROUTE ERR003\r\n'
+                    reply = f'~01@{cmd.lstrip("#").split()[0].rstrip("?")} ERR003\r\n'
                 writer.write(reply.encode())
                 await writer.drain()
         except (asyncio.IncompleteReadError, KeyError):

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 (2026-11-15) — optional capability-aware controls
+
+- Added read-only capability detection for front-panel lock, standby, audio mute, video output enabled, and freeze; common controls use strictly matched output addresses and are omitted if unsupported.
+- Added VP-444-specific output volume (0–100 Kramer units), output resolution (codes 200–223), auto-sync-off, and audio delay mappings.
+- Added Home Assistant `switch` and `number` platforms and optional non-routing `select` entities, all on the existing Kramer device.
+- Added validation of value ranges, per-control polling, unsolicited status feedback, and control-specific unavailable state without disrupting routing.
+- Added general Protocol 3000 error response handling (`ERR 002`) and bounded read-only discovery timeouts.
+- Added fake TCP/UDP device tests for discovery, writes and entity behavior (37 tests passing).
+- Not yet verified inside a full Home Assistant installation or against live Kramer hardware for these optional controls.
+
+
 ## 0.3.1 (2026-11-15) — VP-444 device profile
 
 - Added an exact-match VP-444 profile with 10 HDMI and 2 PC video inputs (physical IDs 0–11).

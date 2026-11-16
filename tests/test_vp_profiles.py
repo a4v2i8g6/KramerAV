@@ -50,7 +50,7 @@ class FakeVPDevice:
                         self.routes[destination] = source
                         reply = f'~01@ROUTE {layer},{destination},{source} OK'
                 else:
-                    reply = '~01@VID ERR003'
+                    reply = f'~01@{command.lstrip("#").split()[0].rstrip("?")} ERR003'
                 writer.write((reply + '\r\n').encode())
                 await writer.drain()
         except asyncio.IncompleteReadError:
@@ -256,7 +256,7 @@ class FakeVP444UDPDevice(asyncio.DatagramProtocol):
             else:
                 reply = '~01@ROUTE ERR003'
         else:
-            reply = '~01@ROUTE ERR003'
+            reply = f'~01@{cmd.lstrip("#").split()[0].rstrip("?")} ERR003'
         self.transport.sendto((reply + '\r\n').encode('ascii'), address)
 
 

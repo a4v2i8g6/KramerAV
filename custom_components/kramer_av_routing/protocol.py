@@ -307,6 +307,9 @@ class KramerClient:
             return
         # Some Kramer firmware reports an AV acknowledgment after a VID route
         # when audio-follow-video is active.
+        if message.command == "ERR" and re.match(r"\s*\d+\b", message.payload):
+            self._pending.set_exception(KramerCommandError(message.raw))
+            return
         if message.command != self._pending_key and not (
             self._pending_key == "VID" and message.command == "AV"
         ):
@@ -321,6 +324,7 @@ class KramerClient:
         self,
         command: str,
         matcher: Callable[[KramerMessage], bool] | None = None,
+        timeout: float | None = None,
     ) -> KramerMessage:
         """Send #COMMAND<CR> and await its framed response."""
         if not re.fullmatch(r"[A-Za-z0-9-]+\??(?: [A-Za-z0-9_,.>*-]+)?", command):
@@ -344,7 +348,9 @@ class KramerClient:
                         raise KramerConnectionError("UDP socket is not open")
                     self._udp_transport.sendto(payload)
                 try:
-                    return await asyncio.wait_for(future, timeout=self.timeout)
+                    return await asyncio.wait_for(
+                        future, timeout=self.timeout if timeout is None else timeout
+                    )
                 except asyncio.TimeoutError as exc:
                     raise KramerConnectionError(f"No response to {command}") from exc
             except OSError as exc:

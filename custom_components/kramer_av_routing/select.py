@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_INPUT_NAMES, CONF_OUTPUT_NAMES, DOMAIN, FAMILY_VID, FAMILY_X_ROUTE
 from .coordinator import KramerCoordinator
+from .control_entity import KramerControlEntity
 from .protocol import KramerError
 
 
@@ -46,10 +47,13 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities) -> N
             f"{label} ({signal.port_type} {signal.port_number})"
             for label, signal in zip(outputs, coordinator.x_outputs)
         ]
-    async_add_entities(
+    entities = [
         KramerOutputSelect(coordinator, output, inputs, outputs[output - 1])
         for output in range(1, coordinator.outputs + 1)
-    )
+    ]
+    entities.extend(KramerControlSelect(coordinator, spec)
+                    for spec in coordinator.capabilities.values() if spec.kind == "select")
+    async_add_entities(entities)
 
 
 class KramerOutputSelect(CoordinatorEntity[KramerCoordinator], SelectEntity):
@@ -122,3 +126,25 @@ class KramerOutputSelect(CoordinatorEntity[KramerCoordinator], SelectEntity):
             await self.coordinator.async_set_route(self.output, source)
         except (KramerError, ValueError) as exc:
             raise HomeAssistantError(f"Kramer route change failed: {exc}") from exc
+
+
+class KramerControlSelect(KramerControlEntity, SelectEntity):
+    """A non-routing selection for a verified scaler/device capability."""
+
+    def __init__(self, coordinator: KramerCoordinator, spec) -> None:
+        super().__init__(coordinator, spec)
+        self._attr_options = [label for _, label in spec.choices]
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.control_values.get(self.spec.key)
+        return self.spec.option_label(value) if value is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        value = self.spec.option_code(option)
+        if value is None:
+            raise HomeAssistantError(f"Unsupported option {option!r}")
+        try:
+            await self.coordinator.async_set_control(self.spec.key, value)
+        except (KramerError, ValueError, KeyError) as exc:
+            raise HomeAssistantError(f"Kramer control {self.spec.key} failed: {exc}") from exc
