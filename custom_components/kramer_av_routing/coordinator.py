@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 import logging
+from datetime import datetime, timezone
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -58,6 +59,11 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.capabilities: dict[str, ControlSpec] = {}
         self.control_values: dict[str, int] = {}
         self.saved_presets: tuple[int, ...] = ()
+        self.audio_inputs = 0
+        self.audio_outputs = 0
+        self.audio_routes: dict[int, int] = {}
+        self.last_success: str | None = None
+        self.last_error: str | None = None
         # Extended Protocol 3000 uses typed signal IDs, not contiguous port numbers.
         self.x_inputs: list[SignalId] = []
         self.x_outputs: list[SignalId] = []
@@ -143,6 +149,7 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
                         "No supported routing query (X-ROUTE?/ROUTE?/VID?). "
                         "Select a command family manually or provide a device-specific profile."
                     )
+        await self._discover_audio_routing()
         await self._discover_controls()
         await self._discover_presets()
         _LOGGER.info(
@@ -153,6 +160,39 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.outputs,
             self.family,
         )
+
+    async def _discover_audio_routing(self) -> None:
+        """Probe layer 2 only for generic ROUTE matrices, never a VP profile.
+
+        VP and extended machines can use non-contiguous signal IDs or distinct
+        physical audio ports; those need verified per-model mappings.
+        """
+        if self.family != FAMILY_ROUTE or self.profile is not None:
+            return
+        try:
+            result = await self.client.command(
+                "ROUTE? 2,1", timeout=1.5,
+                matcher=lambda msg: 1 in parse_route(msg, FAMILY_ROUTE, layer=2))
+            first = parse_route(result, FAMILY_ROUTE, layer=2).get(1)
+            if first is None or not 0 <= first <= self.inputs:
+                return
+            self.audio_inputs = self.inputs
+            self.audio_outputs = self.outputs
+            self.audio_routes[1] = first
+        except KramerError:
+            _LOGGER.debug("Generic ROUTE layer 2 audio routing unavailable")
+
+    async def async_set_audio_route(self, output: int, source: int) -> None:
+        """Change a read-confirmed layer 2 audio route, without guessing ports."""
+        if not 1 <= output <= self.audio_outputs or not 0 <= source <= self.audio_inputs:
+            raise ValueError("Audio source/output outside discovered range")
+        command = f"ROUTE 2,{output},{source}"
+        reply = await self.client.command(
+            command,
+            matcher=lambda msg: parse_route(msg, FAMILY_ROUTE, layer=2).get(output) == source)
+        if parse_route(reply, FAMILY_ROUTE, layer=2).get(output) != source:
+            raise KramerError("Unconfirmed audio route")
+        await self.async_request_refresh()
 
     async def _discover_controls(self) -> None:
         """Enable optional entities only after confirmed read-only queries.
@@ -336,6 +376,12 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
         return parse_route(message, family)
 
     def _handle_message(self, message: KramerMessage) -> None:
+        if self.audio_outputs and self.family == FAMILY_ROUTE:
+            audio = parse_route(message, FAMILY_ROUTE, layer=2)
+            for output, source in audio.items():
+                if 1 <= output <= self.audio_outputs and 0 <= source <= self.audio_inputs:
+                    self.audio_routes[output] = source
+                    self.async_update_listeners()
         updated = False
         for key, spec in self.capabilities.items():
             value = spec.decode(message)
@@ -372,7 +418,24 @@ class KramerCoordinator(DataUpdateCoordinator[dict[int, int]]):
                 result = self._routes_from_message(message, self.family)
                 routes[output] = result[output]
         except (KramerError, OSError, asyncio.TimeoutError) as exc:
+            self.last_error = type(exc).__name__
             raise UpdateFailed(f"Kramer routing poll failed: {exc}") from exc
+        # Independent layer 2 audio routes are optional and do not block video.
+        if self.audio_outputs:
+            for output in range(1, self.audio_outputs + 1):
+                try:
+                    msg = await self.client.command(
+                        f"ROUTE? 2,{output}", timeout=1.5,
+                        matcher=lambda m, out=output: out in parse_route(m, FAMILY_ROUTE, layer=2))
+                    source = parse_route(msg, FAMILY_ROUTE, layer=2)[output]
+                    if 0 <= source <= self.audio_inputs:
+                        self.audio_routes[output] = source
+                    else:
+                        self.audio_routes.pop(output, None)
+                except (KramerError, OSError, asyncio.TimeoutError):
+                    self.audio_routes.pop(output, None)
+        self.last_success = datetime.now(timezone.utc).isoformat()
+        self.last_error = None
         # Optional capabilities must not bring down otherwise functional video
         # routing. Mark only the failed control unavailable until it recovers.
         for key, spec in self.capabilities.items():

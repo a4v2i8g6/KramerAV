@@ -1,3 +1,12 @@
+## 0.6.0-alpha — Protocol 2000 compatibility foundation and diagnostics
+
+- Added a separate binary Protocol 2000 TCP backend and conservative read-only detection.
+- Shared video selectors, independent audio routing when status replies are valid, and panel lock for compatible Protocol 2000 matrices.
+- Generic `ROUTE`-based Protocol 3000 layer-2 audio selection; VP and X-ROUTE device restrictions remain in place.
+- Added protocol/machine selector, automatic TCP/UDP port defaults, reconfigure flow, redacted diagnostics, and connection status sensor.
+- Added protocol/frame/TCP/coordinator regression tests. No protocol-mode changes during discovery.
+- This is an experimental, hardware-unverified feature release. See `DUAL_PROTOCOL.md`.
+
 ## 0.5.1-alpha — Display name and branding
 
 - Renamed the Home Assistant integration display name to **Kramer AV**.

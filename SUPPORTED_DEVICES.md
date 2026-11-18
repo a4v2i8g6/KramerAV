@@ -1,3 +1,5 @@
+> **v0.6.0-alpha update:** A generic Protocol 2000 TCP video matrix adapter now exists with simulated discovery, input switching, status feedback, optional audio routing and front-panel lock. **No physical Protocol 2000 model is verified yet.** The VP model table below describes Protocol 3000 mappings only; this release does not claim Protocol 2000 support for those VP devices. See [DUAL_PROTOCOL.md](DUAL_PROTOCOL.md) and [ROADMAP.md](ROADMAP.md).
+
 # Supported model profiles (experimental)
 
 These are **documented command mappings**, not confirmed physical hardware compatibility. All devices must respond to `MODEL?` and their profile's `ROUTE?` query. The integration does not claim support for every device in a named series.

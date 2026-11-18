@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Add Kramer AV device",
-        "description": "Enter the address. Leave counts at 0 to discover a known VP device profile, SIGNALS-LIST? (X-ROUTE), or INFO-IO?. TCP typically uses port 5000 and UDP port 50000.",
+        "description": "Protocol 2000 or 3000. Port 0 selects TCP 5000 or UDP 50000. Detection performs read-only requests and does not switch a device protocol.",
         "data": {
           "host": "Host or IP address",
           "port": "Port",
@@ -11,17 +11,43 @@
           "inputs": "Input count (0 = auto)",
           "outputs": "Output count (0 = auto)",
           "command_family": "Routing command family",
-          "profile_mode": "Device profile mode"
+          "profile_mode": "Device profile mode",
+          "protocol": "Kramer control protocol",
+          "machine_id": "Protocol 2000 machine ID (1-31)"
         },
         "data_description": {
-          "command_family": "Auto tries X-ROUTE? with SIGNALS-LIST? discovery first, then ROUTE? and VID?.",
-          "profile_mode": "Auto verifies exact VP models using a read-only ROUTE query; Generic disables VP profiles and uses manually configured counts and command family."
+          "port": "0 = default for TCP or UDP. Override if your device uses a custom port.",
+          "protocol": "Automatic checks Protocol 3000 first, then Protocol 2000 over TCP.",
+          "machine_id": "Used only by Protocol 2000; normally 1."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Kramer AV device",
+        "description": "Change connection settings. The same protocol/device must respond; no protocol mode is changed on the hardware.",
+        "data": {
+          "host": "Host or IP address",
+          "port": "Port",
+          "transport": "Transport",
+          "inputs": "Input count (0 = auto)",
+          "outputs": "Output count (0 = auto)",
+          "command_family": "Routing command family",
+          "profile_mode": "Device profile mode",
+          "protocol": "Kramer control protocol",
+          "machine_id": "Protocol 2000 machine ID (1-31)"
+        },
+        "data_description": {
+          "port": "0 = default for TCP or UDP. Override if your device uses a custom port.",
+          "protocol": "Automatic checks Protocol 3000 first, then Protocol 2000 over TCP.",
+          "machine_id": "Used only by Protocol 2000; normally 1."
         }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect or receive a Protocol 3000 model response",
-      "not_protocol_3000": "The device did not identify itself using Protocol 3000"
+      "not_protocol_3000": "The device did not identify itself using Protocol 3000",
+      "invalid_configuration": "Unsupported transport, protocol, or I/O counts",
+      "wrong_device": "The new address does not match the existing Kramer device",
+      "protocol_change_not_supported": "To change the protocol, remove and re-add the device"
     },
     "abort": {
       "already_configured": "This address and protocol are already configured"
@@ -31,7 +57,7 @@
     "step": {
       "init": {
         "title": "Kramer AV options",
-        "description": "Comma-separated friendly names in physical port order. Leave an item blank to retain its numeric label. Names are suffixes, e.g. 'Input 1 — PC'.",
+        "description": "Comma-separated friendly names in physical port order. Leave an item blank to retain its numeric label. Names are suffixes, e.g. 'Input 1 \u2014 PC'.",
         "data": {
           "input_names": "Input names (CSV)",
           "output_names": "Output names (CSV)",

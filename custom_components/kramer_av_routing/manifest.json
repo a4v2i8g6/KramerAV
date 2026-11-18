@@ -1,10 +1,13 @@
 {
   "domain": "kramer_av_routing",
   "name": "Kramer AV",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "config_flow": true,
   "requirements": [],
   "dependencies": [],
   "codeowners": [],
-  "iot_class": "local_polling"
+  "iot_class": "local_polling",
+  "documentation": "https://github.com/a4v2i8g6/KramerAV",
+  "issue_tracker": "https://github.com/a4v2i8g6/KramerAV/issues",
+  "integration_type": "device"
 }

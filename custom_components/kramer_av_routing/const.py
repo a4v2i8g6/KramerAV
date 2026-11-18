@@ -25,6 +25,12 @@ FAMILY_AUTO = "auto"
 FAMILY_ROUTE = "route"
 FAMILY_VID = "vid"
 FAMILY_X_ROUTE = "x_route"
+FAMILY_P2000 = "protocol2000"
+CONF_PROTOCOL = "protocol"
+CONF_MACHINE_ID = "machine_id"
+PROTOCOL_AUTO = "auto"
+PROTOCOL_2000 = "2000"
+PROTOCOL_3000 = "3000"
 
 PLATFORMS = [
     Platform.SELECT, Platform.SWITCH, Platform.NUMBER, Platform.BINARY_SENSOR, Platform.BUTTON,

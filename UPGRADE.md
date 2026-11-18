@@ -1,3 +1,24 @@
+# Upgrade to 0.6.0-alpha
+
+Backup the existing integration folder first. Copy the new `custom_components/kramer_av_routing/`
+over the old folder, then restart Home Assistant. The internal integration ID is
+unchanged, so **existing Protocol 3000 entries should not need to be re-added**.
+
+For new Protocol 2000 devices, select **Protocol 2000** or **Auto** and choose TCP.
+Port **0** applies the selected transport's default (TCP 5000; UDP 50000), and
+machine ID defaults to 1. Serial-only Protocol 2000 units are not supported.
+
+Use **Reconfigure** in the integration menu to change a connection's IP/port.
+Changing an existing entry's protocol deliberately requires removing and re-adding.
+
+Download sanitized diagnostics from the integration's menu if the setup or
+routing query fails. No IP/hostname is included in exported diagnostics.
+
+This version was validated against simulated devices, not a physical Protocol 2000
+matrix or a complete Home Assistant runtime. See `DUAL_PROTOCOL.md` for limitations.
+
+---
+
 # Upgrade to KramerAV v0.5.0-alpha
 
 ## From v0.4.0-alpha or earlier

@@ -1,8 +1,10 @@
 # Kramer AV
 
-**Version 0.5.1-alpha — experimental. Advanced controls have been tested against simulated devices, not verified on live hardware.**
+**Previous documented feature set: v0.5.1-alpha — experimental. Advanced controls have been tested against simulated devices, not verified on live hardware.**
 
-A Home Assistant custom integration for Kramer Protocol 3000 AV matrices and presentation switchers.
+> **Current development release: v0.6.0-alpha.** Kramer AV now includes a read-only-detected Protocol 2000 TCP backend alongside Protocol 3000. Legacy devices gain video and verified separate audio routing, panel lock, and protocol-aware setup. See [DUAL_PROTOCOL.md](DUAL_PROTOCOL.md) for precise support and remaining limits. **This is not hardware-validated Protocol 2000 support.**
+
+A Home Assistant custom integration for Kramer Protocol 2000 and 3000 AV matrices and presentation switchers.
 
 - Supports TCP (often port 5000) and UDP (often port 50000), with manually configurable ports.
 - Detects device identity using `MODEL?`.
@@ -93,7 +95,7 @@ See [SUPPORTED_DEVICES.md](SUPPORTED_DEVICES.md) for documentation sources and t
 2. Copy `custom_components/kramer_av_routing` into Home Assistant's `/config/custom_components/` folder, replacing the previous folder if upgrading.
 3. Restart Home Assistant.
 4. Go to **Settings → Devices & services → Add integration** and select **Kramer AV**.
-5. Enter the host/IP, transport, and port. **TCP often uses 5000; UDP often uses 50000**, depending on device model.
+5. Enter the host/IP, transport, and port. **TCP often uses 5000; UDP often uses 50000. Port 0 automatically chooses the default for the selected transport**, depending on device model.
 6. Leave input and output counts at `0` for auto detection, including known VP profiles. Select **Auto** routing family and **Auto** device profile mode (default). Probe order is Extended → verified VP model profile → generic ROUTE → VID. Use **Generic** profile mode only if you need to bypass known VP model routing conventions after consulting the manual.
 7. In the integration's **Configure** options, supply optional comma-separated input and output names and a polling interval.
 

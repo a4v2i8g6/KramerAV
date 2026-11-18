@@ -8,6 +8,7 @@ from .const import DOMAIN
 from .control_entity import KramerControlEntity
 from .coordinator import KramerCoordinator
 from .protocol import KramerError
+from .protocol2000 import Protocol2000Error
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -36,5 +37,5 @@ class KramerControlSwitch(KramerControlEntity, SwitchEntity):
     async def _send(self, value: int) -> None:
         try:
             await self.coordinator.async_set_control(self.spec.key, value)
-        except (KramerError, ValueError, KeyError) as exc:
+        except (KramerError, Protocol2000Error, ValueError, KeyError) as exc:
             raise HomeAssistantError(f"Kramer control {self.spec.key} failed: {exc}") from exc

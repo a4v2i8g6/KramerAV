@@ -91,7 +91,7 @@ def _load_local_source():
     sys.modules[PKG] = pkg
     sys.modules.update(stubs)
     try:
-        for mod in ('const', 'protocol', 'profiles', 'capabilities', 'presets', 'coordinator', 'control_entity', 'select', 'switch', 'number', 'binary_sensor', 'button'):
+        for mod in ('const', 'protocol', 'protocol2000', 'profiles', 'capabilities', 'presets', 'coordinator', 'coordinator2000', 'control_entity', 'select', 'switch', 'number', 'binary_sensor', 'button'):
             module_name = f'{PKG}.{mod}'
             spec = importlib.util.spec_from_file_location(module_name, ROOT / f'{mod}.py')
             module = importlib.util.module_from_spec(spec)
@@ -114,6 +114,7 @@ class MatrixStub:
     def __init__(self, extended=True):
         self.extended = extended
         self.writes = []
+        self.audio = 1
         self.map = {'OUT.HDBT.4.VIDEO.1': 'IN.HDMI.2.VIDEO.1',
                     'OUT.HDMI.1.VIDEO.1': 'IN.HDMI.1.VIDEO.1'}
 
@@ -139,6 +140,11 @@ class MatrixStub:
                     out, source = cmd.split(' ', 1)[1].split(',')
                     self.map[out] = source
                     reply = f'~01@X-ROUTE {out},{source}\r\n'
+                elif cmd == '#ROUTE? 2,1':
+                    reply = f'~01@ROUTE 2,1,{self.audio}\r\n'
+                elif cmd.startswith('#ROUTE 2,1,'):
+                    self.audio = int(cmd.split(',')[-1])
+                    reply = f'~01@ROUTE 2,1,{self.audio}\r\n'
                 elif cmd == '#ROUTE? 1,1':
                     reply = '~01@ROUTE 1,1,2\r\n'
                 elif cmd == '#ROUTE 1,1,1':
@@ -191,6 +197,17 @@ class CoordinatorIntegrationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.data, {1: 1, 2: 1})
         self.assertIn('#X-ROUTE OUT.HDBT.4.VIDEO.1,IN.HDMI.1.VIDEO.1', self.fake.writes)
         self.assertNotIn('#ROUTE 1,1,1', self.fake.writes)
+
+    async def test_layer_two_audio_routing_and_selector(self):
+        coordinator = await self._make(extended=False)
+        await coordinator.async_initialize()
+        self.assertEqual(coordinator.audio_outputs, 1)
+        await coordinator.async_request_refresh()
+        ent = select_module.KramerAudioSelect(coordinator, 1, ['Input 1', 'Input 2'])
+        self.assertEqual(ent.current_option, 'Input 1')
+        await ent.async_select_option('Input 2')
+        self.assertEqual(coordinator.audio_routes[1], 2)
+        self.assertIn('#ROUTE 2,1,2', self.fake.writes)
 
     async def test_legacy_auto_fallback(self):
         coordinator = await self._make(extended=False)

@@ -3,19 +3,23 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS, CONF_PROTOCOL, PROTOCOL_2000
 from .coordinator import KramerCoordinator
+from .coordinator2000 import Kramer2000Coordinator
+from .protocol2000 import Protocol2000Error
 from .protocol import KramerError
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up one Kramer device after read-only capability probing."""
-    coordinator = KramerCoordinator(hass, entry)
+    coordinator = (Kramer2000Coordinator(hass, entry) if entry.data.get(CONF_PROTOCOL) == PROTOCOL_2000
+                   else KramerCoordinator(hass, entry))
     try:
         await coordinator.async_initialize()
         await coordinator.async_config_entry_first_refresh()
-    except (KramerError, ConfigEntryNotReady) as exc:
+    except (KramerError, Protocol2000Error, ConfigEntryNotReady, UpdateFailed, OSError) as exc:
         await coordinator.async_close()
         raise ConfigEntryNotReady(str(exc)) from exc
 
